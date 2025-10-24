@@ -8948,8 +8948,15 @@ if __name__ == "__main__":
         db.create_all()
         migrate_sqlite()
         seed_if_empty()
-    
+
+    # Solo arranca Flask si lo ejecutas localmente
     app.run(debug=True)
+else:
+    # En producción (Railway), también aseguramos migración
+    with app.app_context():
+        db.create_all()
+        migrate_sqlite()
+        seed_if_empty()
 
 # CSRF error handler
 @app.errorhandler(CSRFError)
