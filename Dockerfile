@@ -21,4 +21,4 @@ ENV PORT=8080
 ENV UPLOAD_FOLDER=/data/uploads
 
 # Gunicorn (threads worker plays nice with Flask & I/O)
-CMD ["gunicorn", "-w", "4", "-k", "gthread", "-b", "0.0.0.0:8080", "app:app"]
+CMD ["gunicorn", "-w", "1", "-k", "gthread", "-b", "0.0.0.0:8080", "--log-level", "debug", "--capture-output", "--timeout", "180", "app:app"]
