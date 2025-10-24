@@ -8941,22 +8941,14 @@ def migrate_sqlite():
             except Exception:
                 pass
 
-
+with app.app_context():
+        db.create_all()
+        migrate_sqlite()
+        seed_if_empty()
 # ---------------------- ARRANQUE ----------------------
 if __name__ == "__main__":
-    with app.app_context():
-        db.create_all()
-        migrate_sqlite()
-        seed_if_empty()
-
     # Solo arranca Flask si lo ejecutas localmente
     app.run(debug=True)
-else:
-    # En producción (Railway), también aseguramos migración
-    with app.app_context():
-        db.create_all()
-        migrate_sqlite()
-        seed_if_empty()
 
 # CSRF error handler
 @app.errorhandler(CSRFError)
