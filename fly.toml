@@ -1,37 +1,23 @@
-# --- fly.toml template ---
-# IMPORTANT: change the app name below to a unique one (Fly requires uniqueness)
-app = "freshs-labors-app-change-this"
-primary_region = "gru"  # São Paulo (closest to Colombia). You can use "mia" (Miami) if you prefer.
+# fly.toml app configuration file generated for freshslabors on 2025-10-24T16:12:27Z
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'freshslabors'
+primary_region = 'ord'
 
 [build]
-  # Using Dockerfile in the project root
-
-[env]
-  APP_TIMEZONE = "America/Bogota"
-  # When using a persistent volume, point the DB to it:
-  DATABASE_URL = "sqlite:////data/database.db"
-  # Optional: tell the app where to store uploads (your app already reads UPLOAD_FOLDER if present)
-  UPLOAD_FOLDER = "/data/uploads"
 
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = true
+  auto_stop_machines = 'stop'
   auto_start_machines = true
   min_machines_running = 0
-  processes = ["app"]
-
-  [http_service.concurrency]
-    type = "connections"
-    hard_limit = 100
-    soft_limit = 50
+  processes = ['app']
 
 [[vm]]
-  memory = "512mb"
-  cpu_kind = "shared"
+  memory = '512mb'
+  cpu_kind = 'shared'
   cpus = 1
-
-# Mount a volume at /data to persist DB & uploads
-[[mounts]]
-  source = "data"
-  destination = "/data"
+  memory_mb = 1024
