@@ -7,11 +7,11 @@ primary_region = "gru"  # São Paulo (closest to Colombia). You can use "mia" (M
   # Using Dockerfile in the project root
 
 [env]
-  APP_TIMEZONE = "America/Bogota"
+  APP_TIMEZONE = "America/New_York"
   # When using a persistent volume, point the DB to it:
   DATABASE_URL = "sqlite:////data/database.db"
   # Optional: tell the app where to store uploads (your app already reads UPLOAD_FOLDER if present)
-  UPLOAD_FOLDER = "/data/uploads"
+  UPLOAD_FOLDER = "/static/uploads"
 
 [http_service]
   internal_port = 8080
