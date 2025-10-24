@@ -33,5 +33,11 @@ primary_region = "gru"  # São Paulo (closest to Colombia). You can use "mia" (M
 
 # Mount a volume at /data to persist DB & uploads
 [[mounts]]
-  source = "data"
-  destination = "/data"
+destination = "/data"
+source = "data"
+
+# NUEVO volumen para persistir static/uploads
+[[mounts]]
+destination = "/app/static/uploads"
+source = "uploads"
+
