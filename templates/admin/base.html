@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="es" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  {# Título: por defecto usa el brand_name o "Fresh Labors" #}
+  <title>{% block title %}{{ appcfg.brand_name or 'Fresh Labors' }}{% endblock %}</title>
+
+  <!-- Fuente -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+
+  <!-- Bootstrap + Icons -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" crossorigin="anonymous">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+
+  <!-- Tus CSS -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/admin-ui.css') }}">
+
+  <style>
+  /* ====== (tus estilos iguales que antes) ====== */
+  :root{
+    --bg:#f6f0e6; --surface:#ffffff; --surface-2:#fff7ed; --text:#1a1a1a; --muted:#6b5f56;
+    --primary:#c0362c; --primary-50:#fff1eb; --primary-100:#ffd8cc; --border:#eadfd3;
+    --shadow:0 8px 24px rgba(82,46,9,.06), 0 2px 8px rgba(82,46,9,.05);
+    --line-glow: linear-gradient(90deg, rgba(192,54,44,.9), rgba(192,54,44,.25) 35%, transparent 70%);
+    --fs-b: clamp(.95rem, .9rem + .3vw, 1.05rem);
+    --space-1: clamp(8px, 1vw, 12px);
+    --space-2: clamp(12px, 1.2vw, 16px);
+    --space-3: clamp(16px, 2vw, 24px);
+    --radius: 16px;
+  }
+  html[data-theme="dark"]{
+    --bg:#0a0f1d; --surface:#0f172a; --surface-2:#121a2f; --text:#e8eeff; --muted:#a8b6d6;
+    --primary:#6aa3ff; --primary-50:#15223a; --primary-100:#203151; --border:#1f2a45;
+    --shadow:0 10px 26px rgba(2,6,23,.55), 0 2px 8px rgba(2,6,23,.35);
+    --line-glow: linear-gradient(90deg, rgba(106,163,255,.95), rgba(106,163,255,.35) 35%, transparent 70%);
+  }
+  :root, html[data-theme="dark"]{
+    --bs-body-bg: var(--bg); --bs-body-color: var(--text); --bs-heading-color: var(--text);
+    --bs-link-color: var(--primary); --bs-link-hover-color: var(--primary);
+    --bs-border-color: var(--border); --bs-secondary-color: var(--muted);
+    --bs-card-bg: var(--surface); --bs-card-color: var(--text);
+    --bs-modal-bg: var(--surface); --bs-modal-color: var(--text);
+    --bs-dropdown-bg: var(--surface); --bs-dropdown-link-color: var(--text);
+  }
+  html,body{ background:var(--bg); color:var(--text); font-family:"Inter",system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif; font-size: var(--fs-b); text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+  body{ background-image: radial-gradient(rgba(0,0,0,.03) 1px, transparent 1px); background-size: 12px 12px; background-position: -2px -2px; }
+  .container, .container-fluid{ padding-left: var(--space-2); padding-right: var(--space-2); }
+
+  .topbar{ background:var(--surface-2); box-shadow:var(--shadow); }
+  .brand-dot{
+    width:30px;height:30px;border-radius:50%;
+    display:inline-flex;align-items:center;justify-content:center;
+    font-weight:800;background:var(--primary);color:#fff;
+  }
+  .brand-logo{ height:28px; width:auto; object-fit:contain; }
+  .brand-text{ font-weight:800; letter-spacing:.2px; color:var(--text) !important; }
+  .topbtn{ border-radius:10px; }
+  @media (max-width: 575.98px){ .brand-text{ display:none; } .top-actions { gap: .4rem !important; } }
+
+  .nav-underline{ position:relative; height:10px; overflow:hidden; background:transparent; }
+  .nav-underline::before{ content:""; position:absolute; inset:auto 0 0 0; height:4px; background:var(--line-glow); }
+
+  .mainnav{ background:var(--surface-2); box-shadow:var(--shadow); }
+  .nav-tabs-like{ display:flex; gap:.4rem; align-items:center; overflow-x:auto; white-space:nowrap; -webkit-overflow-scrolling:touch; scrollbar-width:none; padding-top:.55rem; padding-bottom:.5rem; }
+  .nav-tabs-like::-webkit-scrollbar{ display:none; }
+  .nav-tabs-like .tab{ display:inline-flex; align-items:center; gap:.5rem; padding:.55rem .9rem; border-radius:12px; font-weight:600; color:var(--muted); text-decoration:none; background:transparent; transition: background .18s ease, color .18s ease; }
+  .nav-tabs-like .tab:hover{ background:var(--primary-50); color:var(--primary); }
+  .nav-tabs-like .tab.active{ background:var(--primary-50); color:var(--primary); box-shadow:inset 0 0 0 1px var(--primary-100); }
+  .bell-link{ display:inline-flex; align-items:center; justify-content:center; font-size:1.25rem; color:var(--muted); text-decoration:none; }
+  .bell-link:hover{ color:var(--primary); }
+  @media (min-width: 992px){ .mobile-nav-btn{ display:none; } }
+
+  .offcanvas{ background: var(--surface); color: var(--text); border-right: 1px solid var(--border); }
+  .offcanvas-header{ background: var(--surface-2); border-bottom: 1px solid var(--border); }
+  .offcanvas .btn{ border-radius: 10px; }
+  .offcanvas .btn.active{ background: var(--primary-50); color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary-100); }
+  .mobile-nav-btn{ border-color: var(--border); background: var(--surface); }
+  .mobile-nav-btn:hover{ background: var(--primary-50); color: var(--primary); border-color: var(--primary-100); }
+
+  .card{ border:1px solid var(--border); border-radius:var(--radius); box-shadow:var(--shadow); background:var(--surface); color:var(--text); }
+  .card .card-header{ border-bottom:1px solid var(--border); background:var(--surface-2); color:var(--text); border-top-left-radius:var(--radius); border-top-right-radius:var(--radius); }
+  .table-wrap{ overflow-x:auto; -webkit-overflow-scrolling: touch; }
+  .table{ margin-bottom:0; }
+  .table thead{ background:#fff3e6; }
+  .table-hover > tbody > tr:hover{ background-color:var(--primary-50); }
+  .form-control, .form-select, .form-check-input{ background:var(--surface); color:var(--text); border:1px solid var(--border); }
+  .form-control:focus, .form-select:focus{ background:var(--surface); color:var(--text); border-color: var(--primary-100); box-shadow:0 0 0 .2rem color-mix(in oklab, var(--primary) 25%, transparent); }
+  .input-group-text{ background:var(--surface-2); color:var(--muted); border:1px solid var(--border); }
+  .modal-content{ background:var(--surface); color:var(--text); border:1px solid var(--border); box-shadow:var(--shadow); }
+  html[data-theme="dark"] .btn-close{ filter: invert(1); }
+  .dropdown-menu{ background:var(--surface); color:var(--text); border:1px solid var(--border); box-shadow:var(--shadow); }
+  .dropdown-item{ color:var(--text); }
+  .dropdown-item:hover{ background:var(--primary-50); color:var(--primary); }
+  .alert-success{ background-color:#f1fbf4; border-color:#c6f1d3; color:#0f5132; }
+  [data-bs-theme="dark"] .table thead{ background:#1f2937; }
+  [data-bs-theme="dark"] .table thead th{ color:#f3f4f6; border-bottom-color:rgba(255,255,255,.1); }
+  [data-bs-theme="dark"] .table-hover tbody tr:hover{ background-color:rgba(255,255,255,.04); }
+  [data-bs-theme="dark"] .table td{ border-color:rgba(255,255,255,.05); color:#e5e7eb; }
+  [data-bs-theme="dark"] .badge.text-bg-light{ background:rgba(255,255,255,.1) !important; color:#f3f4f6 !important; border:1px solid rgba(255,255,255,.2); }
+  .content-wrap{ padding-top: var(--space-3); padding-bottom: var(--space-3); }
+  .stack-sm{ display:grid; gap:var(--space-2); grid-template-columns: 1fr; }
+  @media (min-width: 768px){ .stack-sm.md-2{ grid-template-columns: 1fr 1fr; } }
+  @media (min-width: 992px){ .stack-sm.lg-3{ grid-template-columns: repeat(3, 1fr); } }
+  </style>
+
+  {% block styles %}{% endblock %}
+</head>
+<body>
+<!-- TOPBAR -->
+<div class="topbar">
+  <div class="container d-flex justify-content-between align-items-center py-2">
+    
+    {# ====== BRAND dinámico ====== #}
+    <a class="brand d-flex align-items-center gap-2 text-decoration-none" href="{{ url_for('admin_dashboard') }}">
+      {% if appcfg.brand_logo %}
+        {% set _is_http = appcfg.brand_logo.startswith('http') %}
+        {% set _logo_url = appcfg.brand_logo if _is_http else url_for('static', filename=appcfg.brand_logo) %}
+        <img class="brand-logo" src="{{ _logo_url }}" alt="Logo">
+      {% else %}
+        {# fallback: circulito con iniciales (si hay nombre) o FL #}
+        {% set _bn = (appcfg.brand_name or 'Fresh Labors') %}
+        {% set _ini = (_bn.split()[0][:1] ~ (_bn.split()[1][:1] if _bn.split()|length>1 else ''))|upper %}
+        <span class="brand-dot">{{ _ini or 'FL' }}</span>
+      {% endif %}
+      <span class="brand-text">{{ appcfg.brand_name or 'Fresh Labors' }}</span>
+    </a>
+
+    <div class="d-flex align-items-center gap-2 top-actions">
+      <!-- Botón menú móvil -->
+      <button class="btn btn-sm btn-outline-secondary topbtn mobile-nav-btn d-lg-none" type="button"
+              data-bs-toggle="offcanvas" data-bs-target="#mobileNav" aria-controls="mobileNav" title="Menú">
+        <i class="bi bi-list"></i> Menú
+      </button>
+
+      <button id="themeToggle" class="btn btn-sm btn-outline-secondary topbtn" type="button" title="Cambiar tema">
+        <i class="bi bi-moon-stars" id="themeIcon"></i>
+      </button>
+
+      {% if current_user.is_authenticated %}
+        <small class="text-muted d-none d-md-inline">{{ current_user.rol|capitalize }}: {{ current_user.nombre or current_user.email }}</small>
+        <a class="btn btn-sm btn-outline-secondary topbtn d-none d-sm-inline-flex" href="javascript:history.back()">← Atrás</a>
+        <a class="btn btn-sm btn-danger topbtn" href="{{ url_for('logout') }}">Cerrar Sesión</a>
+      {% else %}
+        <a class="btn btn-sm btn-outline-primary topbtn" href="{{ url_for('login_admin') }}">Ingresar</a>
+      {% endif %}
+    </div>
+  </div>
+  <div class="nav-underline"></div>
+</div>
+
+<!-- NAV PRINCIPAL (desktop) -->
+<nav class="mainnav d-none d-lg-block">
+  <div class="container d-flex align-items-center justify-content-between">
+    <ul class="nav nav-tabs-like flex-grow-1">
+      <li><a class="tab {% if request.endpoint=='admin_dashboard' %}active{% endif %}" href="{{ url_for('admin_dashboard') }}"><i class="bi bi-speedometer2"></i> Dashboard</a></li>
+      <li><a class="tab {% if request.endpoint=='admin_tarea_nueva' %}active{% endif %}" href="{{ url_for('admin_tarea_nueva') }}"><i class="bi bi-plus-circle"></i> Crear Tareas</a></li>
+      <li><a class="tab {% if request.endpoint=='admin_tareas' %}active{% endif %}" href="{{ url_for('admin_tareas') }}"><i class="bi bi-list-task"></i> Lista de Tareas</a></li>
+      <li><a class="tab {% if request.endpoint=='admin_informes' %}active{% endif %}" href="{{ url_for('admin_informes') }}"><i class="bi bi-graph-up"></i> Informes</a></li>
+      <li><a class="tab {% if request.endpoint=='admin_horas' %}active{% endif %}" href="{{ url_for('admin_horas') }}"><i class="bi bi-clock-history"></i> Control de Horas</a></li>
+      <li>
+        <a class="tab {% if request.endpoint=='admin_pagos' %}active{% endif %}" href="{{ url_for('admin_pagos') }}">
+          <i class="bi bi-cash-coin"></i> Pagos
+          {% if unpaid_count|default(0)|int > 0 %}
+            <span class="badge bg-danger ms-1">{{ unpaid_count }}</span>
+          {% endif %}
+        </a>
+      </li>
+      <li><a class="tab {% if request.endpoint=='admin_system' %}active{% endif %}" href="{{ url_for('admin_system') }}"><i class="bi bi-gear"></i> Administración</a></li>
+    </ul>
+
+    <a class="bell-link position-relative ms-2" href="{{ url_for('admin_no_confirmados') }}" title="No confirmados">
+      <i class="bi bi-bell"></i>
+      {% if no_confirmados_count|int > 0 %}
+        <span class="badge bg-danger rounded-pill" style="position:absolute; top:-8px; right:-10px;">{{ no_confirmados_count }}</span>
+      {% endif %}
+    </a>
+  </div>
+</nav>
+<div class="nav-underline d-none d-lg-block"></div>
+
+<!-- OFFCANVAS: menú móvil -->
+<div class="offcanvas offcanvas-start" tabindex="-1" id="mobileNav" aria-labelledby="mobileNavLabel">
+  <div class="offcanvas-header">
+    <h5 class="offcanvas-title" id="mobileNavLabel">{{ appcfg.brand_name or 'Fresh Labors' }}</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+  </div>
+  <div class="offcanvas-body d-flex flex-column gap-2">
+    <a class="btn btn-light text-start {% if request.endpoint=='admin_dashboard' %}active{% endif %}" href="{{ url_for('admin_dashboard') }}">
+      <i class="bi bi-speedometer2 me-1"></i> Dashboard
+    </a>
+    <a class="btn btn-light text-start {% if request.endpoint=='admin_tarea_nueva' %}active{% endif %}" href="{{ url_for('admin_tarea_nueva') }}">
+      <i class="bi bi-plus-circle me-1"></i> Crear Tareas
+    </a>
+    <a class="btn btn-light text-start {% if request.endpoint=='admin_tareas' %}active{% endif %}" href="{{ url_for('admin_tareas') }}">
+      <i class="bi bi-list-task me-1"></i> Lista de Tareas
+    </a>
+    <a class="btn btn-light text-start {% if request.endpoint=='admin_informes' %}active{% endif %}" href="{{ url_for('admin_informes') }}">
+      <i class="bi bi-graph-up me-1"></i> Informes
+    </a>
+    <a class="btn btn-light text-start {% if request.endpoint=='admin_horas' %}active{% endif %}" href="{{ url_for('admin_horas') }}">
+      <i class="bi bi-clock-history me-1"></i> Control de Horas
+    </a>
+    <a class="btn btn-light text-start d-flex align-items-center justify-content-between {% if request.endpoint=='admin_pagos' %}active{% endif %}" href="{{ url_for('admin_pagos') }}">
+      <span><i class="bi bi-cash-coin me-1"></i> Pagos</span>
+      {% if unpaid_count|default(0)|int > 0 %}
+        <span class="badge bg-danger">{{ unpaid_count }}</span>
+      {% endif %}
+    </a>
+    <a class="btn btn-light text-start {% if request.endpoint=='admin_system' %}active{% endif %}" href="{{ url_for('admin_system') }}">
+      <i class="bi bi-gear me-1"></i> Administración
+    </a>
+
+    <hr class="my-2">
+    <a class="btn btn-outline-secondary text-start" href="{{ url_for('admin_no_confirmados') }}">
+      <i class="bi bi-bell me-1"></i> No confirmados
+      {% if no_confirmados_count|int > 0 %}
+        <span class="badge bg-danger ms-1">{{ no_confirmados_count }}</span>
+      {% endif %}
+    </a>
+  </div>
+</div>
+
+<!-- CONTENIDO -->
+<main class="content-wrap">
+  <div class="container">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="mb-3">
+        {% for category, message in messages %}
+          <div class="alert alert-{{ 'warning' if category == 'error' else category }} alert-dismissible fade show" role="alert">
+            {{ message }} <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+  </div>
+</main>
+
+<!-- MODALES GLOBALES (igual que antes) -->
+<div class="modal fade" id="appModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="appModalTitle">...</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="appModalBody">Cargando...</div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header"><h6 class="modal-title">Confirmar acción</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body" id="confirmText">¿Seguro?</div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-danger" id="confirmOk">Sí, continuar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+<script src="{{ url_for('static', filename='js/admin_modals.js') }}" defer></script>
+
+<script>
+/* ====== Tema (Oscuro/Claro) ====== */
+(function(){
+  const root = document.documentElement;
+  const saved = localStorage.getItem('fl_theme');
+  if(saved){ root.setAttribute('data-theme', saved); }
+
+  const btn = document.getElementById('themeToggle');
+  const icon = document.getElementById('themeIcon');
+  function syncIcon(){
+    const dark = root.getAttribute('data-theme') === 'dark';
+    icon.className = dark ? 'bi bi-sun' : 'bi bi-moon-stars';
+    if(btn) btn.title = dark ? 'Cambiar a claro' : 'Cambiar a oscuro';
+  }
+  syncIcon();
+  btn?.addEventListener('click', () => {
+    const current = root.getAttribute('data-theme') || 'light';
+    const next = current === 'light' ? 'dark' : 'light';
+    root.setAttribute('data-theme', next);
+    localStorage.setItem('fl_theme', next);
+    syncIcon();
+  });
+})();
+
+/* ====== Confirmaciones genéricas ====== */
+(() => {
+  let pending = { href:null, method:"get", form:null };
+  const modalEl = document.getElementById('confirmModal');
+  const confirmText = document.getElementById('confirmText');
+  const okBtn = document.getElementById('confirmOk');
+  const modal = new bootstrap.Modal(modalEl);
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-confirm]');
+    if(!btn) return;
+
+    e.preventDefault();
+    const msg = btn.getAttribute('data-confirm') || '¿Seguro?';
+    confirmText.textContent = msg;
+
+    pending.href = btn.getAttribute('href') || btn.getAttribute('data-href') || '#';
+    pending.method = (btn.getAttribute('data-method') || 'get').toLowerCase();
+    pending.form = btn.getAttribute('data-form');
+
+    modal.show();
+  });
+
+  okBtn.addEventListener('click', () => {
+    modal.hide();
+    if (pending.form) {
+      const f = document.querySelector(pending.form);
+      if (f) { f.submit(); return; }
+    }
+    if (pending.method === 'post') {
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = pending.href;
+      const token = document.querySelector('meta[name="csrf-token"]')?.content;
+      if(token){
+        const inp = document.createElement('input');
+        inp.type='hidden'; inp.name='csrf_token'; inp.value=token;
+        form.appendChild(inp);
+      }
+      document.body.appendChild(form); form.submit();
+    } else {
+      window.location.href = pending.href;
+    }
+  });
+})();
+</script>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

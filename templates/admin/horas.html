@@ -1,0 +1,734 @@
+{% extends "admin/base.html" %}
+{% block title %}Control de Horas{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h4 class="mb-0">Control de Horas Trabajadas</h4>
+</div>
+
+<div class="row g-3">
+  <!-- ======= LATERAL REPORTES ======= -->
+  <div class="col-lg-3">
+    <div class="card shadow-sm">
+      <div class="card-header py-2"><strong>Reportes</strong></div>
+      <div class="card-body">
+        <div class="form-check mb-2">
+          <input class="form-check-input" type="checkbox" id="incTasks" />
+          <label class="form-check-label small" for="incTasks">Incluir tareas inactivas</label>
+        </div>
+        <div class="form-check mb-3">
+          <input class="form-check-input" type="checkbox" id="incPeople" />
+          <label class="form-check-label small" for="incPeople">Incluir empleados inactivos</label>
+        </div>
+
+        <div class="d-grid gap-2">
+          <button id="btnDLWeekNow" class="btn btn-primary btn-sm">
+            Descargar semanal (semana actual)
+          </button>
+          <button id="btnDLMonthNow" class="btn btn-outline-primary btn-sm">
+            Descargar mensual (mes actual)
+          </button>
+          <hr class="my-2">
+          <button class="btn btn-outline-dark btn-sm" data-bs-toggle="modal" data-bs-target="#weeklyPickerModal">
+            Descargar por semana (elegir)
+          </button>
+          <button class="btn btn-outline-dark btn-sm" data-bs-toggle="modal" data-bs-target="#monthlyPickerModal">
+            Descargar por mes (elegir)
+          </button>
+        </div>
+
+        <div class="small text-muted mt-3">
+          Semanas de <strong>viernes</strong> a <strong>jueves</strong>.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======= CONTENIDO PRINCIPAL ======= -->
+  <div class="col-lg-9">
+    <!-- Filtros -->
+    <div class="card p-3 mb-3 shadow-sm filters-card">
+      <form class="row g-2 align-items-end" method="get" action="{{ url_for('admin_horas') }}">
+        <div class="col-md-3">
+          <label class="form-label small">Buscar Empleado</label>
+          <input name="q" class="form-control" placeholder="Nombre, teléfono o ID" value="{{ request.args.get('q','') }}">
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label small">Estado del Trabajo</label>
+          <select name="estado" class="form-select">
+            <option value="" {{ 'selected' if request.args.get('estado','')=='' else '' }}>Todos los estados</option>
+            <option value="completado" {{ 'selected' if request.args.get('estado')=='completado' else '' }}>Completado</option>
+            <option value="incompleto" {{ 'selected' if request.args.get('estado')=='incompleto' else '' }}>Incompleto</option>
+            <option value="sin" {{ 'selected' if request.args.get('estado')=='sin' else '' }}>Sin reportes</option>
+          </select>
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label small">Fecha Específica</label>
+          <input name="fecha" type="date" class="form-control" value="{{ request.args.get('fecha','') }}">
+        </div>
+
+        <div class="col-md-3">
+          <label class="form-label small">Vista</label>
+          <select name="vista" class="form-select">
+            <option value="resumen" {{ 'selected' if vista=='resumen' else '' }}>Resumen por Empleado</option>
+            <option value="tabla"   {{ 'selected' if vista=='tabla' else '' }}>Vista Detallada (Tabla)</option>
+            <option value="tareas"  {{ 'selected' if vista=='tareas' else '' }}>Agrupado por Tareas</option>
+          </select>
+        </div>
+
+        <div class="col-md-2">
+          <label class="form-label small">Por página</label>
+          <select name="per_page" class="form-select">
+            {% for n in [10,20,30] %}
+            <option value="{{n}}" {{ 'selected' if per_page==n else '' }}>{{n}}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="col-12 d-flex gap-2 justify-content-end">
+          <a class="btn btn-secondary" href="{{ url_for('admin_horas') }}" id="btnLimpiar">Limpiar Filtros</a>
+          <button class="btn btn-primary">Aplicar</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- KPIs -->
+    <div class="row row-cols-2 row-cols-lg-4 g-3 mb-3">
+      <div class="col">
+        <div class="card kpi-card kpi-blue h-100">
+          <div class="kpi-icon"><i class="bi bi-people"></i></div>
+          <div class="kpi-text">
+            <div class="kpi-value" id="kpiEmp">{{ kpis.empleados_trabajando }}</div>
+            <div class="kpi-label">Empleados Trabajando</div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card kpi-card kpi-green h-100">
+          <div class="kpi-icon"><i class="bi bi-clock"></i></div>
+          <div class="kpi-text">
+            <div class="kpi-value"><span id="kpiHoras">{{ '%.1f'|format(kpis.horas_totales) }}h</span></div>
+            <div class="kpi-label">Horas Totales</div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card kpi-card kpi-purple h-100">
+          <div class="kpi-icon"><i class="bi bi-currency-dollar"></i></div>
+          <div class="kpi-text">
+            <div class="kpi-value"><span id="kpiPago">${{ '%.2f'|format(kpis.total_pagado) }}</span></div>
+            <div class="kpi-label">Total Pagado</div>
+          </div>
+        </div>
+      </div>
+      <div class="col">
+        <div class="card kpi-card kpi-red h-100">
+          <div class="kpi-icon"><i class="bi bi-exclamation-triangle"></i></div>
+          <div class="kpi-text">
+            <div class="kpi-value" id="kpiPend">{{ kpis.reportes_pendientes }}</div>
+            <div class="kpi-label">Reportes Pendientes</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% if vista=='resumen' %}
+      {% include "admin/_horas_cards.html" %}
+    {% elif vista=='tabla' %}
+      {% include "admin/_horas_tabla.html" %}
+    {% else %}
+      {% include "admin/_horas_agrupado.html" %}
+    {% endif %}
+  </div>
+</div>
+
+<!-- ======= MODALES ======= -->
+<div class="modal fade" id="horasDetalleModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content" id="horasDetalleBody"></div>
+  </div>
+</div>
+
+<div class="modal fade" id="historialHorasModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          Historial de horas — <span id="hhmEmpName"></span>
+          <small class="text-muted d-block" id="hhmTaskName"></small>
+        </h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex gap-2 align-items-end mb-3">
+          <div>
+            <label class="form-label small mb-1">Días a mostrar</label>
+            <select id="hhmDays" class="form-select form-select-sm" style="width:120px">
+              <option value="30">30 días</option>
+              <option value="60" selected>60 días</option>
+              <option value="90">90 días</option>
+            </select>
+          </div>
+          <div class="ms-auto">
+            <button id="hhmApplyBulk" class="btn btn-primary btn-sm" disabled>Aplicar a seleccionados</button>
+          </div>
+        </div>
+
+        <div class="table-responsive border rounded">
+          <table class="table table-sm mb-0 align-middle">
+            <thead class="table-light">
+              <tr>
+                <th style="width:28px"><input class="form-check-input" type="checkbox" id="hhmCheckAll"></th>
+                <th>Fecha</th>
+                <th>Tarea</th>
+                <th class="text-center">Asistencia</th>
+                <th class="text-center">Salida</th>
+                <th style="width:220px">HH:MM (neto)</th>
+                <th class="text-center">Lunch</th>
+                <th class="text-end" style="width:110px">Acción</th>
+              </tr>
+            </thead>
+            <tbody id="hhmTbody">
+              <tr><td colspan="8" class="text-muted text-center py-3">Cargando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="small text-muted mt-2">
+          Tip: “Editar puntual” abre el editor de un día (en modal). “Aplicar a seleccionados” asigna HH:MM netas iguales a muchos días a la vez.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NUEVO: Modal Editar Día -->
+<div class="modal fade" id="editDiaModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          Editar día — <span id="edmEmpName"></span>
+        </h5>
+        <button class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-2 align-items-end mb-3">
+          <div class="col-md-4">
+            <label class="form-label small">Fecha</label>
+            <input type="date" id="edmFecha" class="form-control">
+          </div>
+          <div class="col-md-8 d-flex gap-2">
+            <button id="edmCargar" class="btn btn-primary btn-sm">Cargar</button>
+          </div>
+        </div>
+        <div id="edmBody">
+          <div class="text-muted small">Selecciona fecha y pulsa “Cargar”.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ======= SCRIPTS ======= -->
+
+<script>
+/* Helpers para export */
+function isoWeekMonday(yyyyWww){
+  const [yyyy, w] = yyyyWww.split('-W');
+  const jan4 = new Date(Number(yyyy), 0, 4);
+  const day = (jan4.getDay() || 7);
+  const mondayOfW1 = new Date(jan4);
+  mondayOfW1.setDate(jan4.getDate() - day + 1);
+  const monday = new Date(mondayOfW1);
+  monday.setDate(monday.getDate() + (Number(w)-1)*7);
+  monday.setHours(0,0,0,0);
+  return monday;
+}
+function snapToFriday(d){
+  const dow = d.getDay(); // 0=Dom..6=Sab
+  const delta = ((dow - 5) >= 0 ? (dow - 5) : (7 + (dow - 5)));
+  const fri = new Date(d);
+  fri.setDate(d.getDate() - delta);
+  fri.setHours(0,0,0,0);
+  return fri;
+}
+function fmt(d){ return d.toISOString().slice(0,10); }
+function buildExportUrl(period, startISO){
+  const url = new URL(window.location.origin + "{{ url_for('admin_export_us') }}");
+  url.searchParams.set('start', startISO);
+  url.searchParams.set('period', period);
+  if(document.getElementById('incTasks')?.checked)  url.searchParams.set('inc_tasks_inactive', '1');
+  if(document.getElementById('incPeople')?.checked) url.searchParams.set('inc_people_inactive', '1');
+  return url.toString();
+}
+</script>
+
+<script>
+/* Acciones menú lateral y export rápido */
+document.getElementById('btnDLWeekNow')?.addEventListener('click', ()=>{
+  const fri = snapToFriday(new Date());
+  window.location = buildExportUrl('week', fmt(fri));
+});
+document.getElementById('btnDLMonthNow')?.addEventListener('click', ()=>{
+  const today = new Date();
+  const first = new Date(today.getFullYear(), today.getMonth(), 1);
+  window.location = buildExportUrl('month', fmt(first));
+});
+</script>
+
+<!-- Modales de elección -->
+<div class="modal fade" id="weeklyPickerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Descargar por semana</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <label class="form-label small">Semana ISO (Lunes)</label>
+      <input id="weekIsoModal" type="week" class="form-control mb-2">
+      <div class="small text-muted">Se anclará a <strong>viernes→jueves</strong>.</div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+      <button class="btn btn-primary" id="btnExportWeekModal">Descargar XLSX</button>
+    </div>
+  </div></div>
+</div>
+
+<div class="modal fade" id="monthlyPickerModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Descargar por mes</h5><button class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body">
+      <label class="form-label small">Mes</label>
+      <input id="monthPickModal" type="month" class="form-control">
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+      <button class="btn btn-primary" id="btnExportMonthModal">Descargar XLSX</button>
+    </div>
+  </div></div>
+</div>
+
+<script>
+/* Botones de modales */
+document.getElementById('btnExportWeekModal')?.addEventListener('click', ()=>{
+  const v = document.getElementById('weekIsoModal').value;
+  if(!v){ alert('Selecciona una semana.'); return; }
+  const fri = snapToFriday(isoWeekMonday(v));
+  window.location = buildExportUrl('week', fmt(fri));
+});
+document.getElementById('btnExportMonthModal')?.addEventListener('click', ()=>{
+  const v = document.getElementById('monthPickModal').value;
+  if(!v){ alert('Selecciona un mes.'); return; }
+  window.location = buildExportUrl('month', v + "-01");
+});
+</script>
+
+<script>
+/* Detalle por empleado */
+document.addEventListener("click", async (e)=>{
+  const btn = e.target.closest("[data-open-detalle]");
+  if(!btn) return;
+  const uid = btn.getAttribute("data-open-detalle");
+  const fecha = document.querySelector('input[name="fecha"]')?.value || "";
+  const url = "{{ url_for('admin_horas_detalle', uid=0) }}".replace('/0','/'+uid) + (fecha?`?fecha=${fecha}`:"");
+  const res = await fetch(url, {headers:{'X-Requested-With':'fetch'}});
+  document.querySelector("#horasDetalleBody").innerHTML = await res.text();
+  new bootstrap.Modal(document.getElementById('horasDetalleModal')).show();
+});
+</script>
+
+<script>
+/* Historial & edición (masivo + puntual EN MODAL) */
+(()=> {
+  const $ = s=>document.querySelector(s);
+  const $$=(s,r=document)=>Array.from(r.querySelectorAll(s));
+  let HHM = { uid:null, tarea_id:null, emp_name:"", tarea_name:"" };
+
+  document.addEventListener("click", (e)=>{
+    const be = e.target.closest("[data-open-hist-emp]");
+    const bt = e.target.closest("[data-open-hist-task]");
+    if(!be && !bt) return;
+    const b = be || bt;
+    HHM.uid        = b.dataset.uid ? parseInt(b.dataset.uid,10) : null;
+    HHM.tarea_id   = b.dataset.tareaId ? parseInt(b.dataset.tareaId,10) : null;
+    HHM.emp_name   = b.dataset.empName || "Empleado";
+    HHM.tarea_name = b.dataset.tareaName || "";
+
+    $("#hhmEmpName").textContent = HHM.emp_name;
+    $("#hhmTaskName").textContent = HHM.tarea_name ? `Tarea: ${HHM.tarea_name}` : "";
+    $("#hhmTbody").innerHTML = `<tr><td colspan="8" class="text-muted text-center py-3">Cargando…</td></tr>`;
+    new bootstrap.Modal(document.getElementById("historialHorasModal")).show();
+    loadFechas();
+  });
+
+  $("#hhmDays")?.addEventListener("change", loadFechas);
+
+  async function loadFechas(){
+    if(!HHM.uid){ $("#hhmTbody").innerHTML = `<tr><td colspan="8" class="text-danger text-center py-3">Falta UID</td></tr>`; return; }
+    const days = parseInt($("#hhmDays").value, 10) || 60;
+    const qs = new URLSearchParams({ uid: HHM.uid, days });
+    if (HHM.tarea_id) qs.set("tarea_id", HHM.tarea_id);
+    const url = `{{ url_for('admin_horas_historial_fechas') }}?${qs.toString()}`;
+    try{
+      const res = await fetch(url, { headers: { "X-Requested-With":"fetch" }});
+      const data = await res.json();
+      if(!data.ok) throw new Error(data.error || "Error");
+      renderFechas(data.fechas || []);
+    }catch(err){
+      $("#hhmTbody").innerHTML = `<tr><td colspan="8" class="text-danger text-center py-3">Error al cargar</td></tr>`;
+    }
+  }
+
+  function renderFechas(items){
+    const tbody = $("#hhmTbody");
+    if(!items.length){
+      tbody.innerHTML = `<tr><td colspan="8" class="text-muted text-center py-3">Sin actividad.</td></tr>`;
+      return;
+    }
+    const rows=[];
+    for(const d of items){
+      const fecha = d.fecha;
+      if((d.tareas||[]).length===0){
+        rows.push(rowTpl({ fecha, tarea_id: HHM.tarea_id, asistencia:false, salida:false }));
+      }else{
+        for(const t of d.tareas){
+          rows.push(rowTpl({
+            fecha,
+            tarea_id: HHM.tarea_id || t.tarea_id,
+            asistencia: !!t.tiene_asistencia,
+            salida: !!t.tiene_salida,
+            tarea_name: t.tarea_nombre || ''
+          }));
+        }
+      }
+    }
+    tbody.innerHTML = rows.join("");
+    setBulkUiState();
+  }
+
+  function rowTpl({fecha, tarea_id, asistencia, salida, tarea_name}){
+    const safeTid = tarea_id ? Number(tarea_id) : "";
+    const label = tarea_name ? `#${safeTid} · ${tarea_name}` : (safeTid ? `#${safeTid}` : `—`);
+    return `
+      <tr data-fecha="${fecha}" data-tarea-id="${safeTid}">
+        <td><input class="form-check-input hhm-check" type="checkbox"></td>
+        <td><span class="badge bg-light text-dark">${fecha}</span></td>
+        <td>${label}</td>
+        <td class="text-center">${asistencia ? "✔️" : "—"}</td>
+        <td class="text-center">${salida ? "✔️" : "—"}</td>
+        <td><input type="time" class="form-control form-control-sm hhm-hhmm" step="60" placeholder="HH:MM"></td>
+        <td class="text-center"><input type="checkbox" class="form-check-input hhm-lunch"></td>
+        <td class="text-end">
+          <button class="btn btn-outline-secondary btn-sm js-open-edit-day"
+                  data-uid="${HHM.uid}" data-tarea-id="${safeTid}" data-fecha="${fecha}" data-emp-name="${HHM.emp_name}">
+            Editar puntual
+          </button>
+        </td>
+      </tr>`;
+  }
+
+  // Bulk
+  $("#hhmCheckAll")?.addEventListener("change", (e)=>{
+    $$(".hhm-check").forEach(ch => ch.checked = e.target.checked);
+    setBulkUiState();
+  });
+  document.addEventListener("change", (e)=>{
+    if(e.target.classList.contains("hhm-check")) setBulkUiState();
+  });
+  function setBulkUiState(){
+    const any = $$(".hhm-check").some(ch => ch.checked);
+    $("#hhmApplyBulk").disabled = !any || !({{ 'true' if request.args.get('vista','resumen')!='resumen' else 'false' }}) ? !any : !any;
+  }
+  $("#hhmApplyBulk")?.addEventListener("click", async ()=>{
+    const sel = Array.from(document.querySelectorAll("#hhmTbody tr")).filter(tr => tr.querySelector(".hhm-check")?.checked);
+    if(sel.length===0) return;
+    const items=[];
+    for(const tr of sel){
+      const fecha = tr.dataset.fecha;
+      const hhmm  = tr.querySelector(".hhm-hhmm")?.value?.trim();
+      const lunch = tr.querySelector(".hhm-lunch")?.checked || false;
+      if(!hhmm) continue;
+      items.push({ fecha, hhmm, lunch_on: lunch });
+    }
+    if(items.length===0){ alert("Escribe HH:MM en al menos una fila seleccionada."); return; }
+    try{
+      const res = await fetch("{{ url_for('admin_horas_editar_bulk') }}", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json", "X-Requested-With":"fetch" },
+        body: JSON.stringify({ uid: Number(document.querySelector('#hhmEmpName')?.dataset?.uid || 0) || HHM.uid, tarea_id: HHM.tarea_id, items })
+      });
+      const json = await res.json();
+      if(!json.ok) throw new Error(json.error || "Error");
+      await loadFechas();
+    }catch(err){ alert(err.message || "Error al guardar"); }
+  });
+})();
+</script>
+
+<script>
+/* Modal Editar Día: carga HTML del endpoint y lo muestra */
+(()=> {
+  const $ = s=>document.querySelector(s);
+
+  document.addEventListener("click", async (e)=>{
+    const btn = e.target.closest(".js-open-edit-day");
+    if(!btn) return;
+    const uid = btn.dataset.uid;
+    const emp = btn.dataset.empName || "Empleado";
+    const fechaFromBtn = btn.dataset.fecha || "";
+    const tareaId = btn.dataset.tareaId || "";
+
+    $("#edmEmpName").textContent = emp;
+    $("#edmFecha").value = fechaFromBtn;
+    $("#edmBody").innerHTML = `<div class="text-muted small">Selecciona fecha y pulsa “Cargar”.</div>`;
+    const modal = new bootstrap.Modal(document.getElementById('editDiaModal'));
+    modal.show();
+
+    const cargar = async () => {
+      const fecha = $("#edmFecha").value;
+      if(!fecha){ alert("Selecciona una fecha."); return; }
+      const base = "{{ url_for('admin_horas_editar_dia') }}";
+      const qs = new URLSearchParams({ uid:String(uid), fecha });
+      if(tareaId) qs.set("tarea_id", String(tareaId));
+      try{
+        const res = await fetch(`${base}?${qs.toString()}`, { headers: { "X-Requested-With":"fetch" } });
+        const html = await res.text();
+        $("#edmBody").innerHTML = html;
+      }catch(err){
+        $("#edmBody").innerHTML = `<div class="text-danger small">Error cargando el editor.</div>`;
+      }
+    };
+
+    document.getElementById("edmCargar").onclick = cargar;
+    if(fechaFromBtn){ cargar(); }
+  });
+})();
+</script>
+
+<script>
+/* Filtros dinámicos (resumen, tabla y tareas) + PAGINACIÓN de cards (10 por página) */
+(()=> {
+  const $ = s => document.querySelector(s);
+
+  const qInput  = document.querySelector('input[name="q"]');
+  const estSel  = document.querySelector('select[name="estado"]');
+  const fechaIn = document.querySelector('input[name="fecha"]');
+  const perSel  = document.querySelector('select[name="per_page"]');
+  const vistaSel= document.querySelector('select[name="vista"]');
+
+  const norm = s => (s||'').toString().normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+  const matchEstado = (pct, est) => {
+    pct = Number(pct||0);
+    if(!est) return true;
+    if(est==='completado') return pct===100;
+    if(est==='incompleto') return pct>0 && pct<100;
+    if(est==='sin') return pct===0;
+    return true;
+  };
+
+  // --- PAGINACIÓN PARA CARDS
+  const PAGE = { size: 10, current: 1 };
+  const pager = {
+    wrap: null, info: null, btns: null,
+    mount(){
+      this.wrap = document.getElementById('cardsPager');
+      this.info = document.getElementById('cardsPagerInfo');
+      this.btns = document.getElementById('cardsPagerBtns');
+    },
+    render(total){
+      const visibles = Array.from(document.querySelectorAll('#cardsGrid > .col')).filter(c=>c.dataset._visible==='1');
+      const tp = Math.max(1, Math.ceil(visibles.length / PAGE.size));
+      if (PAGE.current > tp) PAGE.current = tp;
+
+      // aplicar rango visible
+      let idx = 0;
+      visibles.forEach(col=>{
+        idx++;
+        const inPage = (idx > (PAGE.current-1)*PAGE.size) && (idx <= PAGE.current*PAGE.size);
+        col.style.display = inPage ? '' : 'none';
+      });
+
+      if (visibles.length <= PAGE.size){
+        this.wrap?.setAttribute('hidden','');
+        return;
+      }
+      this.wrap?.removeAttribute('hidden');
+      if (this.info) this.info.textContent = `Mostrando ${(PAGE.current-1)*PAGE.size+1}–${Math.min(PAGE.current*PAGE.size, visibles.length)} de ${visibles.length}`;
+
+      const mk=(lbl,val,dis=false,act=false)=>{ const b=document.createElement('button');
+        b.type='button'; b.className='page-btn'+(act?' active':''); b.textContent=lbl;
+        if(dis) b.disabled=true; b.onclick=()=>{ PAGE.current=val; this.render(visibles.length); }; return b; };
+
+      this.btns.innerHTML = '';
+      this.btns.appendChild(mk('«',1,PAGE.current===1));
+      this.btns.appendChild(mk('‹',Math.max(1,PAGE.current-1),PAGE.current===1));
+
+      let a=Math.max(1,PAGE.current-2), b=Math.min(tp,a+4); if(b-a<4) a=Math.max(1,b-4);
+      for(let p=a;p<=b;p++) this.btns.appendChild(mk(String(p),p,false,p===PAGE.current));
+
+      this.btns.appendChild(mk('›',Math.min(tp,PAGE.current+1),PAGE.current===tp));
+      this.btns.appendChild(mk('»',tp,PAGE.current===tp));
+    }
+  };
+
+  function filterResumen(){
+    const grid = document.getElementById('cardsGrid');
+    if(!grid) return;
+    if(!pager.wrap) pager.mount();
+
+    const cards = [...grid.querySelectorAll('.col[data-emp]')];
+    const term = norm(qInput?.value);
+    const est  = estSel?.value || '';
+
+    let shown=0, empTrab=0, h=0, pay=0, pend=0;
+
+    cards.forEach(el=>{
+      const emp = el.dataset.emp || '';
+      const pct = Number(el.dataset.pct || 0);
+      const ok  = (!term || norm(emp).includes(term)) && matchEstado(pct, est);
+      // data flag + no display (paginador gestionará mostrar u ocultar)
+      el.dataset._visible = ok ? '1' : '0';
+      if(ok){
+        shown++;
+        const hh = Number(el.dataset.horas||0);
+        const tt = Number(el.dataset.total||0);
+        if(hh>0) empTrab++;
+        h+=hh; pay+=tt; if(pct<100) pend++;
+      }
+    });
+
+    const noRes = document.getElementById('noResults');
+    if(noRes){ noRes.classList.toggle('d-none', shown>0); noRes.style.display = shown>0 ? 'none' : ''; }
+
+    document.getElementById('kpiEmp')?.replaceChildren(document.createTextNode(empTrab));
+    document.getElementById('kpiHoras')?.replaceChildren(document.createTextNode(`${h.toFixed(1)}h`));
+    document.getElementById('kpiPago')?.replaceChildren(document.createTextNode(`$${pay.toFixed(2)}`));
+    document.getElementById('kpiPend')?.replaceChildren(document.createTextNode(pend));
+
+    PAGE.current = 1; // siempre reset con filtros
+    pager.render(shown);
+  }
+
+  function filterTabla(){
+    const rows = [...document.querySelectorAll('tr.js-emp-row')];
+    if(rows.length===0) return;
+    const term = norm(qInput?.value);
+    const est  = estSel?.value || '';
+    const countLabel = document.getElementById('tablaCount');
+    const countFiltered = document.getElementById('tablaCountFiltered');
+    const countNum = document.getElementById('tablaCountNum');
+    const pagNav = document.getElementById('tablaPagination');
+
+    let shown = 0;
+    rows.forEach(tr=>{
+      const emp = tr.dataset.emp || '';
+      const pct = Number(tr.dataset.pct || 0);
+      const ok  = (!term || norm(emp).includes(term)) && matchEstado(pct, est);
+      tr.style.display = ok ? '' : 'none';
+      const detail = tr.nextElementSibling;
+      if(detail && detail.matches('.collapse')){
+        if(!ok) detail.classList.remove('show');
+        detail.style.display = ok ? '' : 'none';
+      }
+      if(ok) shown++;
+    });
+
+    const hasFilter = !!term || !!est;
+    if(hasFilter){
+      countLabel?.classList.add('d-none');
+      if(countFiltered){
+        countFiltered.classList.remove('d-none');
+        if(countNum) countNum.textContent = shown;
+      }
+      pagNav?.classList.add('d-none');
+    }else{
+      countLabel?.classList.remove('d-none');
+      countFiltered?.classList.add('d-none');
+      pagNav?.classList.remove('d-none');
+    }
+  }
+
+  function filterTareas(){
+    const heads = [...document.querySelectorAll('.accordion-button[data-bs-target]')];
+    const term = norm(qInput?.value);
+    heads.forEach(h=>{
+      const target = h.getAttribute('data-bs-target');
+      const emps = (h.dataset.emps || '').toString();
+      const ok = (!term || norm(emps).includes(term));
+      h.closest('.accordion-item').style.display = ok ? '' : 'none';
+      const body = document.querySelector(target);
+      if(body){
+        if(!ok) body.classList.remove('show');
+        body.style.display = ok ? '' : 'none';
+      }
+    });
+
+    const items = [...document.querySelectorAll('tr.js-task-item')];
+    if(items.length===0) return;
+    items.forEach(a=>{
+      const emps = (a.dataset.emps || '').toString();
+      const ok   = (!term || norm(emps).includes(term));
+      a.style.display = ok ? '' : 'none';
+    });
+  }
+
+  function applyFilter(){ filterResumen(); filterTabla(); filterTareas(); }
+
+  let t=null;
+  qInput?.addEventListener('input', ()=>{ clearTimeout(t); t=setTimeout(applyFilter, 150); });
+  estSel?.addEventListener('change', applyFilter);
+
+  document.getElementById('btnLimpiar')?.addEventListener('click', (e)=>{
+    e.preventDefault();
+    if(qInput) qInput.value=''; if(estSel) estSel.value=''; if(fechaIn) fechaIn.value='';
+    applyFilter();
+  });
+
+  // Disparo inicial
+  document.addEventListener('DOMContentLoaded', () => setTimeout(applyFilter, 0));
+  setTimeout(applyFilter, 0);
+})();
+</script>
+
+<style>
+/* ====== Dark-friendly ====== */
+.filters-card{ border-radius:14px; border:1px solid var(--bs-border-color); background:var(--bs-body-bg); }
+
+.kpi-card{
+  display:flex; gap:14px; align-items:center;
+  padding:16px; border-radius:14px;
+  border:1px solid var(--bs-border-color);
+  background:color-mix(in oklab,var(--bs-body-bg),var(--bs-tertiary-bg) 35%);
+  color:var(--bs-body-color);
+  box-shadow:0 2px 8px rgba(20,20,20,.04);
+}
+.kpi-card:hover{ box-shadow:0 6px 16px rgba(20,20,20,.08); }
+.kpi-icon{ flex:0 0 42px; height:42px; display:grid; place-items:center; font-size:20px; }
+.kpi-value{ font-weight:800; font-size:clamp(18px,2vw,22px); }
+.kpi-label{ font-size:12.5px; color:var(--bs-secondary-color); }
+
+/* Acentos con color-mix (compatibles con dark) */
+.kpi-blue  { background:color-mix(in oklab, #0b5ed7, transparent 88%); color:#0b5ed7; border-color:color-mix(in oklab,#0b5ed7,transparent 80%); }
+.kpi-green { background:color-mix(in oklab, #0f7a48, transparent 88%); color:#0f7a48; border-color:color-mix(in oklab,#0f7a48,transparent 80%); }
+.kpi-purple{ background:color-mix(in oklab, #6f42c1, transparent 88%); color:#6f42c1; border-color:color-mix(in oklab,#6f42c1,transparent 80%); }
+.kpi-red   { background:color-mix(in oklab, #b42318, transparent 88%); color:#b42318; border-color:color-mix(in oklab,#b42318,transparent 80%); }
+
+/* Paginador de cards (resumen) */
+#cardsPager[hidden]{ display:none !important; }
+#cardsPager{ display:flex; justify-content:space-between; align-items:center; gap:10px; margin-top:10px; flex-wrap:wrap; }
+#cardsPager .pager-info{ color:var(--bs-secondary-color); font-size:.9rem; }
+#cardsPager .pagination{ display:flex; gap:6px; }
+#cardsPager .pagination .page-btn{
+  border:1px solid var(--bs-border-color); background:var(--bs-body-bg);
+  border-radius:10px; padding:.35rem .6rem; cursor:pointer; font-weight:600; color:var(--bs-body-color);
+}
+#cardsPager .pagination .page-btn.active{
+  background:color-mix(in oklab, var(--bs-primary), transparent 85%);
+  border-color:color-mix(in oklab, var(--bs-primary), transparent 65%);
+  font-weight:800;
+}
+#cardsPager .pagination .page-btn[disabled]{ opacity:.5; cursor:not-allowed; }
+</style>
+
+{% endblock %}

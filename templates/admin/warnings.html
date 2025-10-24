@@ -1,0 +1,40 @@
+{% extends "admin/base.html" %}
+{% block title %}Amonestaciones{% endblock %}
+{% block content %}
+  {% include "components/_flash.html" %}
+
+<h1 class="text-2xl font-bold mb-4">Amonestaciones & Lunch</h1>
+
+<div class="bg-white p-5 rounded-2xl card mb-4">
+  <h3 class="font-semibold mb-2">Pendientes de confirmación</h3>
+  <form method="post" class="grid md:grid-cols-2 gap-3">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+    <div class="space-y-2">
+      {% for p in pendientes %}
+      <label class="flex items-center gap-2">
+        <input type="checkbox" name="seleccion" value="{{ p.usuario.id }}-{{ p.tarea.id }}">
+        <span class="text-sm">{{ p.usuario.nombre }} • {{ p.tarea.nombre }} (ID {{ p.tarea.id }})</span>
+      </label>
+      {% else %}
+      <div class="text-slate-500 text-sm">Sin pendientes.</div>
+      {% endfor %}
+    </div>
+    <div class="space-y-2">
+      <input name="mensaje" class="border rounded-lg px-3 py-2 w-full" value="Incumplimiento de confirmación de asistencia.">
+      <button class="px-3 py-2 rounded-lg bg-rose-600 text-white">Amonestar seleccionados</button>
+    </div>
+  </form>
+</div>
+
+<div class="bg-white p-5 rounded-2xl card">
+  <h3 class="font-semibold mb-2">Sanciones recientes</h3>
+  <ul class="text-sm">
+    {% for s in sanciones %}
+      <li class="border-b py-2"><b>{{ s.usuario.nombre }}</b> • {{ s.tipo }} • {{ s.creada_en.strftime('%Y-%m-%d %H:%M') }} — {{ s.mensaje }}</li>
+    {% else %}
+      <li class="text-slate-500">No hay sanciones.</li>
+    {% endfor %}
+  </ul>
+</div>
+{% endblock %}

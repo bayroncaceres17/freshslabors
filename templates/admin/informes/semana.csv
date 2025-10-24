@@ -1,0 +1,26 @@
+rows = (
+    db.session.query(
+        cast(RP.timestamp, Date).label("dia"),
+        TR.id.label("tarea_id"),
+        TR.nombre.label("tarea"),
+        TR.prioridad.label("prioridad"),
+        TR.fecha_inicio.label("fecha_ini"),
+        TR.hora_inicio.label("hora_ini"),
+        USR.nombre.label("empleado"),
+        func.count(RP.id).label("reportes"),
+        func.coalesce(esperados_tarea_sq.c.esperados, TR.cantidad_reportes, 0).label("esperados"),
+    )
+    .select_from(RP)
+    .join(ASG, and_(ASG.tarea_id == RP.tarea_id, ASG.usuario_id == RP.usuario_id))
+    .join(TR, TR.id == ASG.tarea_id)
+    .join(USR, USR.id == ASG.usuario_id)
+    .outerjoin(esperados_tarea_sq, esperados_tarea_sq.c.tid == TR.id)
+    .filter(RP.timestamp >= start_dt, RP.timestamp <= end_dt)
+    .group_by(
+        cast(RP.timestamp, Date),
+        TR.id, TR.nombre, TR.prioridad, TR.fecha_inicio, TR.hora_inicio,
+        USR.nombre, func.coalesce(esperados_tarea_sq.c.esperados, TR.cantidad_reportes, 0)
+    )
+    .order_by(cast(RP.timestamp, Date), TR.nombre, USR.nombre)
+    .all()
+)

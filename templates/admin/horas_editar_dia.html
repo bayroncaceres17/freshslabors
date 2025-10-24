@@ -1,0 +1,93 @@
+{% extends "admin/base.html" %}
+{% block title %}Editar horas · {{ empleado.nombre }} · {{ fecha }}{% endblock %}
+{% block content %}
+<h5 class="mb-3">Editar horas — {{ empleado.nombre }} — {{ fecha }}</h5>
+
+{% if not by_task %}
+  <div class="alert alert-info">No hay reportes este día.</div>
+{% else %}
+  {% for tid, arr in by_task.items() %}
+    <div class="card mb-3">
+      <div class="card-header">
+        <strong>{{ tareas[tid].nombre if tareas.get(tid) else ('Tarea ' ~ tid) }}</strong>
+      </div>
+      <div class="card-body">
+        {# Busca asistencia y salida #}
+        {% set asistencia = None %}
+        {% set salida = None %}
+        {% for r in arr %}
+          {% if r.tipo == 'asistencia' and not asistencia %}{% set asistencia = r %}{% endif %}
+          {% if r.tipo == 'salida' and not salida %}{% set salida = r %}{% endif %}
+        {% endfor %}
+
+        <div class="row g-2 align-items-center">
+          <div class="col-md-6">
+            <label class="form-label small">Asistencia</label>
+            <input type="datetime-local" class="form-control form-control-sm asis"
+                   data-tid="{{ tid }}" data-id="{{ asistencia.id if asistencia }}"
+                   value="{{ (asistencia.timestamp.strftime('%Y-%m-%dT%H:%M')) if asistencia }}">
+          </div>
+          <div class="col-md-6">
+            <label class="form-label small">Salida</label>
+            <input type="datetime-local" class="form-control form-control-sm sal"
+                   data-tid="{{ tid }}" data-id="{{ salida.id if salida }}"
+                   value="{{ (salida.timestamp.strftime('%Y-%m-%dT%H:%M')) if salida }}">
+            {% if not salida %}
+              <div class="form-check mt-1">
+                <input class="form-check-input crear-salida" type="checkbox" data-tid="{{ tid }}" checked>
+                <label class="form-check-label small">Crear salida si no existe</label>
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+  {% endfor %}
+
+  <div class="d-flex gap-2">
+    <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_horas') }}">Volver</a>
+    <button class="btn btn-primary btn-sm" id="btnGuardar">Guardar cambios</button>
+  </div>
+{% endif %}
+
+<script>
+document.getElementById("btnGuardar")?.addEventListener("click", async () => {
+  const asis = Array.from(document.querySelectorAll(".asis"));
+  const payload = {
+    uid: {{ empleado.id }},
+    fecha: "{{ fecha }}",
+    items: []
+  };
+  const byTid = {};
+  for (const a of asis) {
+    const tid = parseInt(a.dataset.tid, 10);
+    byTid[tid] = byTid[tid] || {tarea_id: tid};
+    byTid[tid].asistencia_id = a.dataset.id || null;
+    byTid[tid].asistencia_ts = a.value ? a.value.replace("T"," ") : null;
+  }
+  const sals = Array.from(document.querySelectorAll(".sal"));
+  for (const s of sals) {
+    const tid = parseInt(s.dataset.tid, 10);
+    byTid[tid] = byTid[tid] || {tarea_id: tid};
+    byTid[tid].salida_id = s.dataset.id || null;
+    byTid[tid].salida_ts = s.value ? s.value.replace("T"," ") : null;
+  }
+  const crear = document.querySelectorAll(".crear-salida");
+  for (const c of crear) {
+    const tid = parseInt(c.dataset.tid, 10);
+    byTid[tid] = byTid[tid] || {tarea_id: tid};
+    byTid[tid].crear_salida_si_falta = c.checked;
+  }
+  payload.items = Object.values(byTid);
+
+  const res = await fetch("{{ url_for('admin_horas_editar_dia_post') }}", {
+    method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify(payload)
+  });
+  const data = await res.json();
+  if (!data.ok) { alert(data.error || "No se pudo guardar"); return; }
+  alert("Cambios guardados.");
+  location.reload();
+});
+</script>
+{% endblock %}

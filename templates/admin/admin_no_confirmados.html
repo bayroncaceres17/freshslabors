@@ -1,0 +1,329 @@
+{% extends "admin/base.html" %}
+{% block title %}No confirmados ({{ 'Sin límite' if all_mode else '≤ ' ~ h ~ 'h antes' }}){% endblock %}
+
+{% block styles %}
+<style>
+  /* Layout */
+  .sheet{display:grid;gap:18px}
+  @media(min-width:1100px){.sheet{grid-template-columns: 340px minmax(0,1fr)}}
+  .cardx{background:#fff;border:1px solid #eef0f6;border-radius:16px;box-shadow:0 10px 24px rgba(20,20,50,.06)}
+  .mini{font-size:.85rem;color:#6b7280}
+  .muted{color:#6b7280}
+  .btn-icon{display:inline-flex;align-items:center;gap:8px}
+
+  /* Toolbar */
+  .toolbar{position:sticky;top:66px;z-index:2;background:rgba(255,255,255,.85);backdrop-filter: blur(6px);border:1px solid #f0f2f7;border-radius:14px;padding:10px 12px;box-shadow:0 6px 18px rgba(20,20,50,.05)}
+
+  /* Chips / Badges */
+  .chip{display:inline-flex;align-items:center;gap:6px;background:#f6f7fb;border:1px solid #e9edf4;color:#374151;border-radius:999px;padding:.2rem .55rem;font-size:.8rem}
+  .chip.ok{background:#e8f7ee;border-color:#b7e5c9;color:#137a4b}
+  .chip.time{background:#f7f7f9}
+  .chip.warn{background:#fff7ed;border-color:#fed7aa;color:#9a3412}
+  .chip.err{background:#fef2f2;border-color:#fecaca;color:#9b1c1c}
+  .chip.info{background:#eef2ff;border-color:#c7d2fe;color:#3730a3}
+  .chip.filter{cursor:pointer;user-select:none}
+  .chip.filter.active{outline:2px solid #4f46e5}
+
+  /* Row card */
+  .row-card{display:grid;grid-template-columns: 28px minmax(0,1fr) auto auto auto;gap:14px;align-items:center;
+            padding:14px 16px;border-bottom:1px dashed #eef0f6;transition: background .15s, transform .15s}
+  .row-card:hover{background:#fafbff}
+  .row-card:last-child{border-bottom:0}
+  .emp{font-weight:700}
+  .sub{font-size:.87rem;color:#667085}
+  .bxs{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .right-col{text-align:right}
+
+  /* Buttons */
+  .btn-slim{padding:.35rem .65rem;border-radius:10px}
+  .btn-wa{--bs-btn-color:#146c43;--bs-btn-border-color:#bae2cd;--bs-btn-hover-bg:#e8f7ee;--bs-btn-hover-border-color:#9fd6bc}
+
+  /* Select-all header */
+  .list-head{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:1px solid #f0f2f7}
+  .ghost{opacity:.5}
+  .dim{opacity:.45}
+
+  /* Highlight for matches */
+  mark{background:#fff2ac;padding:0 .15em;border-radius:4px}
+</style>
+{% endblock %}
+
+{% block content %}
+{% include "components/_flash.html" %}
+
+<!-- Toolbar -->
+<div class="toolbar mb-3">
+  <form class="row g-2 align-items-center" method="get" id="filtersForm">
+    <!-- Buscar -->
+    <div class="col-12 col-md-5">
+      <div class="input-group input-group-sm">
+        <span class="input-group-text">Buscar</span>
+        <input type="text" class="form-control" name="q" id="q" placeholder="Empleado o tarea"
+               value="{{ q or '' }}" autocomplete="off">
+        {% if q %}
+        <button class="btn btn-outline-secondary" type="button"
+                onclick="document.getElementById('q').value='';document.getElementById('filtersForm').submit()">✕</button>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="col-6 col-md-2">
+      <div class="mini mb-1">Ventana</div>
+      <select class="form-select form-select-sm" name="h" onchange="this.form.submit()">
+        {% for opt in [1,2,3,4,6,8] %}
+        <option value="{{ opt }}" {% if not all_mode and opt==h %}selected{% endif %}>{{ opt }} h</option>
+        {% endfor %}
+        <option value="all" {% if all_mode %}selected{% endif %}>Sin límite</option>
+      </select>
+    </div>
+
+    <div class="col-6 col-md-2">
+      <div class="mini mb-1">Confirmación</div>
+      <select class="form-select form-select-sm" name="confirm" onchange="this.form.submit()">
+        <option value="before" {% if confirm_mode=='before' %}selected{% endif %}>Antes de iniciar</option>
+        <option value="today"  {% if confirm_mode=='today' %}selected{% endif %}>Hoy</option>
+        <option value="any"    {% if confirm_mode=='any' %}selected{% endif %}>Cualquiera</option>
+      </select>
+    </div>
+
+    <div class="col-6 col-md-2">
+      <div class="mini mb-1">Alcance</div>
+      <select class="form-select form-select-sm" name="scope" onchange="this.form.submit()">
+        <option value="future" {% if scope!='all' %}selected{% endif %}>Solo futuras</option>
+        <option value="all"    {% if scope=='all' %}selected{% endif %}>Incluir pasadas</option>
+      </select>
+    </div>
+
+    {% if debug %}<input type="hidden" name="debug" value="1">{% endif %}
+  </form>
+
+  {% if cont %}
+  <div class="mt-2 mini d-flex flex-wrap gap-2 align-items-center">
+    <span>Estados —</span>
+    <span class="chip filter ok" data-state="CONFIRMADO">✅ Confirmado: {{ cont.CONFIRMADO or 0 }}</span>
+    <span class="chip filter" data-state="A_TIEMPO">🟡 A tiempo: {{ cont.A_TIEMPO or 0 }}</span>
+    <span class="chip filter warn" data-state="POR_CONFIRMAR">🟠 ≤3h: {{ cont.POR_CONFIRMAR or 0 }}</span>
+    <span class="chip filter err" data-state="INCUMPLIMIENTO">🔴 Incumplimiento: {{ cont.INCUMPLIMIENTO or 0 }}</span>
+    <span class="chip filter info" data-state="SIN_HORA">ⓘ Sin hora: {{ cont.SIN_HORA or 0 }}</span>
+    <span class="chip filter" data-state="ALL">Mostrar todos</span>
+  </div>
+  {% endif %}
+</div>
+
+{% if debug %}
+<div class="alert alert-warning small">
+  <div><b>Debug</b> — confirm={{ confirm_mode }}, alcance={{ scope }}, búsqueda="{{ q or '' }}"</div>
+  <div>Total asignaciones: {{ stats.tot_asign }} |
+      Sin start: {{ stats.sin_start }} |
+      Fuera ventana/pasadas: {{ stats.fuera_ventana }} |
+      Ya confirmado: {{ stats.ya_confirmado }} |
+      Incluidos: {{ stats.incluidos }}</div>
+</div>
+{% endif %}
+
+<div class="sheet">
+  <!-- Lateral: acciones en lote -->
+  <div class="cardx p-3">
+    <form id="bulkForm" method="post" class="d-grid gap-2">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="mensaje" id="bulkMensaje" value="Incumplimiento de confirmación de asistencia.">
+      <input type="hidden" name="nivel" value="warn">
+
+      <div class="mini mb-2">Acciones en lote</div>
+
+      <button type="submit" class="btn btn-danger btn-slim" name="action" value="remover"
+              data-confirm data-title="¿Remover seleccionados?"
+              data-body="Serán removidos de su tarea." data-ok="Remover">
+        Remover seleccionados
+      </button>
+
+      <button type="submit" class="btn btn-outline-danger btn-slim" name="action" value="amonestar"
+              data-confirm data-title="¿Amonestar seleccionados?"
+              data-body="Se registrará amonestación por falta de confirmación." data-ok="Amonestar">
+        Amonestar seleccionados
+      </button>
+
+      <hr class="my-2">
+      <div class="mini">Motivo (opcional)</div>
+      <input class="form-control form-control-sm" placeholder="Motivo"
+             oninput="document.getElementById('bulkMensaje').value=this.value || 'Incumplimiento de confirmación de asistencia.'">
+    </form>
+  </div>
+
+  <!-- Principal: listado -->
+  <div class="cardx">
+    <div class="list-head">
+      <div class="mini text-uppercase">Listado (ordenado por inicio más cercano)</div>
+      <div class="d-flex align-items-center gap-2">
+        <span class="mini">Seleccionar</span>
+        <input type="checkbox" id="chkAll">
+      </div>
+    </div>
+
+    <div id="rows">
+      {% for p in pendientes %}
+      <div class="row-card"
+           data-emp="{{ p.empleado|lower }}"
+           data-task="{{ p.tarea|lower }}"
+           data-state="{{ p.estado_conf }}">
+        <div>
+          <input type="checkbox" class="chkRow" form="bulkForm" name="asign" value="{{ p.asignacion_id }}"
+                 {% if p.estado_conf == 'INCUMPLIMIENTO' %}checked{% endif %}>
+        </div>
+
+        <div class="min-w-0">
+          <div class="emp text-truncate" data-hl="emp">{{ p.empleado }}</div>
+          <div class="sub text-truncate" data-hl="task">
+            Tarea #{{ p.tarea_id }} · {{ p.tarea }} ·
+            <span class="chip time">Inicio: {{ p.inicio_txt }} {{ p.tz }}</span>
+
+            {% if p.estado_conf == 'CONFIRMADO' %}
+              <span class="chip ok">✅ Confirmado</span>
+            {% elif p.estado_conf == 'A_TIEMPO' %}
+              <span class="chip">🟡 A tiempo</span>
+            {% elif p.estado_conf == 'POR_CONFIRMAR' %}
+              <span class="chip warn">🟠 Por confirmar (≤3h)</span>
+            {% elif p.estado_conf == 'INCUMPLIMIENTO' %}
+              <span class="chip err">🔴 Incumplimiento</span>
+            {% else %}
+              <span class="chip info">ⓘ Sin hora</span>
+            {% endif %}
+          </div>
+        </div>
+
+        <div class="right-col">
+          <div class="chip">
+            {% if p.mins_to_start == 1000000000 %}
+              s/hora
+            {% elif p.mins_to_start >= 0 %}
+              {{ p.mins_to_start }} min
+            {% else %}
+              hace {{ (-p.mins_to_start) }} min
+            {% endif %}
+          </div>
+          <div class="mini">
+            {% if p.mins_to_start == 1000000000 %}sin programar
+            {% elif p.mins_to_start >= 0 %}para empezar
+            {% else %}inició{% endif %}
+          </div>
+        </div>
+
+        <div class="bxs">
+          {% if p.telefono %}
+            <a class="btn btn-slim btn-wa btn-outline-success btn-icon" href="{{ p.wa }}" target="_blank" rel="noopener">
+              WhatsApp
+            </a>
+          {% endif %}
+        </div>
+
+        <div class="d-flex gap-2">
+          <form method="post" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="asign" value="{{ p.asignacion_id }}">
+            <input type="hidden" name="action" value="remover">
+            <button class="btn btn-slim btn-danger"
+                    data-confirm data-title="¿Remover a {{ p.empleado }}?"
+                    data-body="Se removerá de la tarea." data-ok="Remover">
+              Remover
+            </button>
+          </form>
+
+          <form method="post" class="d-inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="asign" value="{{ p.asignacion_id }}">
+            <input type="hidden" name="action" value="amonestar">
+            <button class="btn btn-slim btn-outline-secondary"
+                    {% if not p.puede_amonestar %}disabled{% endif %}
+                    data-confirm data-title="¿Amonestar a {{ p.empleado }}?"
+                    data-body="Se registrará amonestación por no confirmar." data-ok="Amonestar">
+              Amonestar
+            </button>
+          </form>
+        </div>
+      </div>
+      {% else %}
+        <div class="p-4 text-center text-muted">No hay asignaciones en la vista seleccionada.</div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<script>
+  // Select-all
+  const chkAll = document.getElementById("chkAll");
+  if (chkAll){
+    chkAll.addEventListener("change", ()=>{
+      document.querySelectorAll(".chkRow").forEach(c=> c.checked = chkAll.checked);
+    });
+  }
+
+  // Live filter por texto (complementa el server-side)
+  const q = document.getElementById("q");
+  const rows = document.getElementById("rows");
+  function clearMarks(root){
+    root.querySelectorAll("mark").forEach(m=>{
+      const parent = m.parentNode; parent.replaceChild(document.createTextNode(m.textContent), m); parent.normalize();
+    });
+  }
+  function highlight(el, term){
+    const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT, null);
+    const parts = term.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!parts.length) return;
+    const texts = [];
+    while (walker.nextNode()) texts.push(walker.currentNode);
+    texts.forEach(node=>{
+      const s = node.nodeValue, lower = s.toLowerCase();
+      let changed = false, frag = document.createDocumentFragment();
+      let i=0;
+      while(i < s.length){
+        let hit=null, len=0;
+        for(const p of parts){
+          const idx = lower.indexOf(p, i);
+          if(idx===i){ hit=p; len=p.length; break; }
+        }
+        if(hit){
+          const mark = document.createElement("mark"); mark.textContent = s.substr(i, len);
+          frag.appendChild(mark); i += len; changed = true;
+        }else{
+          frag.appendChild(document.createTextNode(s[i])); i++;
+        }
+      }
+      if(changed){ node.parentNode.replaceChild(frag, node); }
+    });
+  }
+  if (q && rows){
+    let t;
+    const filter = ()=>{
+      const s = q.value.trim().toLowerCase();
+      const parts = s.split(/\s+/).filter(Boolean);
+      rows.querySelectorAll(".row-card").forEach(r=>{
+        r.classList.remove('dim','d-none');
+        clearMarks(r);
+        if (!parts.length) return;
+        const emp = (r.dataset.emp || ""), task = (r.dataset.task || "");
+        const ok = parts.every(p => emp.includes(p) || task.includes(p));
+        r.classList.toggle('d-none', !ok);
+        if(ok){
+          highlight(r.querySelector('[data-hl="emp"]'), s);
+          highlight(r.querySelector('[data-hl="task"]'), s);
+        }
+      });
+    };
+    q.addEventListener("input", ()=>{ clearTimeout(t); t=setTimeout(filter, 120); });
+  }
+
+  // Filtro por estado (chips)
+  const chips = document.querySelectorAll(".chip.filter");
+  chips.forEach(ch=>{
+    ch.addEventListener("click", ()=>{
+      chips.forEach(c=>c.classList.remove("active"));
+      ch.classList.add("active");
+      const state = ch.dataset.state;
+      document.querySelectorAll(".row-card").forEach(r=>{
+        r.classList.remove('d-none');
+        if(state && state!=="ALL" && r.dataset.state !== state){ r.classList.add('d-none'); }
+      });
+    });
+  });
+</script>
+{% endblock %}

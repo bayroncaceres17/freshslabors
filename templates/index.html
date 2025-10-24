@@ -1,0 +1,432 @@
+{% extends "base_public.html" %}
+{% block title %}{{ appcfg.brand_name|default('Fresh Labors') }}{% endblock %}
+
+{% block head %}
+<style>
+  /* ================ TOKENS ================ */
+  :root{
+    --ink:#e9efff; --muted:#b9c4ff;
+    --surface-1:#1b234a; --surface-2:#1a2147;
+    --stroke:#2a3572; --shine:rgba(255,255,255,.08);
+    --btn:#3b82f6; --btn-d:#2b6adf; --ok:#10b981;
+    --bg-grad-1: radial-gradient(900px 480px at 12% 8%, rgba(79,140,255,.20), transparent 60%);
+    --bg-grad-2: radial-gradient(900px 480px at 88% 12%, rgba(123,108,255,.18), transparent 60%);
+    /* acentos por rol */
+    --emp-1:#f59e0b; --emp-2:#f97316;   /* empleado (naranja) */
+    --adm-1:#ef4444; --adm-2:#dc2626;   /* admin (rojo) */
+    --neu-1:#4f8cff; --neu-2:#7b6cff;   /* neutro */
+  }
+  [data-bs-theme="light"]{
+    --ink:#1d2437; --muted:#5c6a91;
+    --surface-1:#fdfdff; --surface-2:#f6f8fe; /* light “dim” */
+    --stroke:#e3e8f6; --shine:rgba(0,0,0,.04);
+    --btn:#2557d6; --btn-d:#1e49b7; --ok:#0ea5a3;
+    --bg-grad-1: radial-gradient(900px 480px at 12% 8%, rgba(54,94,220,.12), transparent 60%);
+    --bg-grad-2: radial-gradient(900px 480px at 88% 12%, rgba(110,70,210,.10), transparent 60%);
+    /* acentos suavizados en light */
+    --emp-1:#f59e0b; --emp-2:#fb923c;
+    --adm-1:#ef4444; --adm-2:#f87171;
+    --neu-1:#3b82f6; --neu-2:#7c3aed;
+  }
+
+  /* ================ LAYOUT ================ */
+  .hero{
+    min-height:100vh; display:flex; flex-direction:column; align-items:center; text-align:center;
+    padding:56px 16px 40px; color:var(--ink);
+    background: var(--bg-grad-1), var(--bg-grad-2);
+  }
+  .hero-badge{
+    width:84px;height:84px;border-radius:22px;margin:0 auto 16px;display:grid;place-items:center;
+    font-size:1.6rem;color:#fff;background:linear-gradient(135deg,var(--neu-1),var(--neu-2));
+    border:1px solid #ffffff22;box-shadow:0 14px 34px rgba(0,0,0,.35),inset 0 1px 0 var(--shine);
+    overflow:hidden
+  }
+  [data-bs-theme="light"] .hero-badge{
+    border-color:#e3e8f6; box-shadow:0 10px 24px rgba(25,45,100,.15), inset 0 1px 0 var(--shine);
+  }
+  .hero-title{font-size:clamp(34px,4.8vw,52px);font-weight:900;letter-spacing:.4px;margin:0 0 6px;}
+  .hero-sub{margin:0 0 8px;color:var(--muted);font-weight:600;}
+  .hero-sub2{margin:0 0 18px;color:var(--muted);font-size:.95rem;}
+
+  .chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin:0 auto 22px;}
+  .chip{
+    padding:8px 12px;border-radius:999px;background:#1f2a66;color:#e9efff;border:1px solid #ffffff22;
+    box-shadow:inset 0 1px 0 var(--shine);font-weight:600;font-size:.92rem;display:flex;align-items:center;gap:8px;
+  }
+  [data-bs-theme="light"] .chip{ background:#eef2ff; border-color:#e3e8f6; color:#2b3355; }
+
+  .ribbon{
+    width:min(1100px,95vw);margin:0 auto 26px;color:#dfe6ff;border:1px solid #ffffff22;background:rgba(255,255,255,.05);
+    border-radius:14px;padding:12px 16px;box-shadow:inset 0 1px 0 var(--shine);
+  }
+  [data-bs-theme="light"] .ribbon{ color:#2b3355; border-color:#e7ecff; background:#f5f7fe; }
+
+  .grid{width:min(1100px,95vw);display:grid;grid-template-columns:1fr 1fr;gap:24px;margin:0 auto;}
+  @media (max-width:900px){.grid{grid-template-columns:1fr;}}
+
+  .card{
+    position:relative;padding:26px 22px;color:var(--ink);border:1px solid var(--stroke);border-radius:18px;
+    background:linear-gradient(180deg,var(--surface-1),var(--surface-2));box-shadow:0 24px 60px rgba(4,8,30,.5),inset 0 1px 0 var(--shine);
+  }
+  [data-bs-theme="light"] .card{ box-shadow:0 16px 36px rgba(20,32,70,.10),inset 0 1px 0 var(--shine); }
+  .card::after{content:"";position:absolute;inset:0;border-radius:18px;box-shadow:inset 0 0 60px rgba(0,0,0,.12);pointer-events:none;}
+  [data-bs-theme="light"] .card::after{box-shadow:none;}
+
+  .card-icon{
+    width:64px;height:64px;border-radius:16px;margin:0 auto 12px;display:grid;place-items:center;color:#fff;font-size:1.6rem;
+    background:var(--grad,linear-gradient(135deg,var(--neu-1),var(--neu-2)));
+    box-shadow:0 12px 28px rgba(0,0,0,.45);
+  }
+  [data-bs-theme="light"] .card-icon{ box-shadow:0 10px 20px rgba(30,60,120,.15); }
+
+  /* Acentos por rol (sin inline styles) */
+  .accent-emp .card-icon{ --grad:linear-gradient(135deg,var(--emp-1),var(--emp-2)); }
+  .accent-admin .card-icon{ --grad:linear-gradient(135deg,var(--adm-1),var(--adm-2)); }
+
+  .card h3{font-size:1.5rem;font-weight:800;margin:0 0 4px;}
+  .card p.sub{color:var(--muted);margin:0 0 12px;}
+  .feat{list-style:none;margin:0 0 18px;padding:0;display:grid;gap:10px;text-align:left;}
+  .feat li{
+    padding:10px 12px;border-radius:10px;display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.16);font-weight:600;
+  }
+  [data-bs-theme="light"] .feat li{ background:#f6f8ff;border-color:#e8eeff;color:#222a3f; }
+  .feat li .i{width:22px;text-align:center;opacity:.95;}
+
+  .cta{width:100%;border-radius:12px;padding:10px 14px;font-weight:700;display:flex;align-items:center;justify-content:center;gap:8px;
+    box-shadow:0 12px 26px rgba(0,0,0,.45);}
+  .cta-success{background:var(--ok);border:1px solid #0f9969;}
+  .cta-primary{background:var(--btn);border:1px solid var(--btn-d);}
+  [data-bs-theme="light"] .cta{ box-shadow:0 12px 24px rgba(20,40,90,.12); }
+  .cta .arrow{transition:transform .15s ease;}
+  .cta:hover .arrow{transform:translateX(3px);}
+
+  .modal-content.rounded-4{border-radius:16px;}
+
+  /* Aura Empleado + focus input */
+  .card--empleado{position:relative;overflow:hidden}
+  .card--empleado::before{
+    content:"";position:absolute;inset:-2px;border-radius:20px;
+    background:radial-gradient(1200px 380px at -10% -10%,rgba(52,211,153,.16),transparent 60%),
+               radial-gradient(1200px 380px at 110% -10%,rgba(16,185,129,.12),transparent 60%);
+    filter:blur(10px);pointer-events:none
+  }
+  .input-glow:focus{box-shadow:0 0 0 .2rem rgba(16,185,129,.22),0 8px 20px rgba(0,0,0,.2);border-color:#10b981}
+
+  /* Aviso compacto */
+  .help-mini{display:flex;align-items:center;gap:8px;background:#e8fff3;border:1px dashed #10b981;color:#065f46;border-radius:10px;padding:6px 8px;font-size:.85rem}
+  [data-bs-theme="light"] .help-mini{ background:#e9fef8; }
+  .help-mini .dot{width:8px;height:8px;border-radius:999px;background:#10b981;flex:0 0 8px}
+  #errorTel{display:none}
+
+  /* Botón tema */
+  .theme-toggle{
+    position:fixed; right:14px; bottom:14px; z-index:50;
+    border:1px solid var(--stroke); background:var(--surface-1); color:var(--ink);
+    border-radius:999px; padding:8px 12px; display:flex; align-items:center; gap:8px;
+    box-shadow:0 10px 24px rgba(0,0,0,.25);
+  }
+  [data-bs-theme="light"] .theme-toggle{ background:#fff; box-shadow:0 10px 20px rgba(20,30,70,.10); }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="hero">
+  <!-- Badge con logo si existe -->
+  <div class="hero-badge">
+    {% if appcfg.brand_logo %}
+      {% set _logo = appcfg.brand_logo %}
+      {% if not _logo.startswith('http') %}{% set _logo = url_for('static', filename=_logo) %}{% endif %}
+      <img src="{{ _logo }}" alt="{{ appcfg.brand_name or 'Fresh Labors' }}" style="max-width:64px;max-height:64px;border-radius:12px">
+    {% else %}
+      <i class="bi bi-graph-up"></i>
+    {% endif %}
+  </div>
+
+  <h1 class="hero-title">{{ appcfg.brand_name|default('Fresh Labors') }}</h1>
+  <p class="hero-sub">{{ appcfg.brand_tagline|default('Sistema de Gestión de Tareas y Personal') }}</p>
+  <p class="hero-sub2">Asignación, reportes con ventana y tolerancia, control de horas, OTP por WhatsApp y multirrol.</p>
+
+  <div class="chips">
+    <span class="chip"><i class="bi bi-person-plus"></i> Asignación rápida de empleados</span>
+    <span class="chip"><i class="bi bi-clock-history"></i> Ventanas de reporte con tolerancia</span>
+    <span class="chip"><i class="bi bi-alarm"></i> Control de horas</span>
+    <span class="chip"><i class="bi bi-chat-dots"></i> Login por WhatsApp (OTP)</span>
+    <span class="chip"><i class="bi bi-shield-lock"></i> Roles: Admin, Supervisor, Empleado</span>
+    <span class="chip"><i class="bi bi-file-earmark-arrow-up"></i> Exportes a WhatsApp / PDF</span>
+  </div>
+
+  <div class="ribbon">“Operación simple, visibilidad total y datos al día.”</div>
+
+  <div class="grid">
+    <!-- EMPLEADO -->
+    <article class="card card--empleado accent-emp">
+      <div class="card-icon"><i class="bi bi-person-workspace"></i></div>
+      <h3>Empleado</h3>
+      <p class="sub">Acceso a mis tareas asignadas</p>
+
+      <ul class="feat">
+        <li><span class="i"><i class="bi bi-list-task"></i></span> Ver tareas por turno o día</li>
+        <li><span class="i"><i class="bi bi-clock"></i></span> Reportar dentro de la ventana permitida</li>
+        <li><span class="i"><i class="bi bi-journal-text"></i></span> Evidencias y notas rápidas</li>
+      </ul>
+
+      <button type="button" class="btn cta cta-success"
+              data-bs-toggle="modal" data-bs-target="#modalEmpleado">
+        Acceder <i class="bi bi-arrow-right-short arrow"></i>
+      </button>
+    </article>
+
+    <!-- ADMINISTRADOR -->
+    <article class="card accent-admin">
+      <div class="card-icon"><i class="bi bi-gear-fill"></i></div>
+      <h3>Administrador</h3>
+      <p class="sub">Panel de control completo</p>
+
+      <ul class="feat">
+        <li><span class="i"><i class="bi bi-people-fill"></i></span> Asignar y organizar empleados</li>
+        <li><span class="i"><i class="bi bi-graph-up-arrow"></i></span> Seguimiento de informes y horas</li>
+        <li><span class="i"><i class="bi bi-arrow-repeat"></i></span> Actualización automática y multirrol</li>
+      </ul>
+
+      <button type="button" class="btn cta cta-primary"
+              data-bs-toggle="modal" data-bs-target="#modalAdmin">
+        Iniciar sesión <i class="bi bi-arrow-right-short arrow"></i>
+      </button>
+    </article>
+  </div>
+</section>
+
+<!-- ====== BOTÓN DE TEMA (en el index) ====== -->
+<button id="btnTheme" class="theme-toggle" type="button" title="Cambiar tema">
+  <i class="bi bi-sun-fill"></i><span class="mini d-none d-sm-inline">Tema</span>
+</button>
+
+<!-- ================== MODALES ================== -->
+
+<!-- Login Empleado (teléfono/OTP) -->
+<div class="modal fade" id="modalEmpleado" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4">
+      <div class="modal-header">
+        <h6 class="modal-title">
+          <i class="bi bi-person-workspace me-1"></i> Ingresar como Empleado
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <form id="formTel" method="post" action="{{ url_for('login_employee') }}" novalidate>
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+
+          <div class="help-mini mb-2">
+            <span class="dot"></span>
+            Usa tu número con <b>prefijo internacional</b> (E.164).
+            Ej.: <code>+1 7865551234</code> · <code>+57 3001234567</code>
+          </div>
+
+          <label class="form-label mb-1">Teléfono (WhatsApp)</label>
+          <input
+            id="telefono" name="telefono" class="form-control input-glow" inputmode="tel"
+            placeholder="+1 7865551234" required pattern="^\+\d{8,15}$"
+            title="Incluye '+' y entre 8 y 15 dígitos (formato E.164).">
+          <div id="errorTel" class="text-danger small mt-2">
+            Incluye el <b>prefijo país</b> y solo dígitos. Ej.: <code>+1 7865551234</code>
+          </div>
+
+          <div class="form-text mt-2">
+            Te enviaremos un código OTP por WhatsApp (modo dev: consola del servidor).
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button id="btnSolicitar" type="submit" class="btn btn-success w-100">
+            Solicitar Código
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Login Admin (usuario/clave) -->
+<div class="modal fade" id="modalAdmin" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4">
+      <div class="modal-header">
+        <h5 class="modal-title">Ingresar como Administrador</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <form method="post" action="{{ url_for('login_admin') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          {% with msgs = get_flashed_messages(category_filter=['danger','error']) %}
+            {% if msgs %}
+              <div class="alert alert-danger py-2 mb-3">{{ msgs[0] }}</div>
+            {% endif %}
+          {% endwith %}
+
+          <label class="form-label">Usuario o Email</label>
+          <input name="username" class="form-control" placeholder="admin@sitio.com" required>
+
+          <label class="form-label mt-3">Contraseña</label>
+          <div class="input-group">
+            <input type="password" name="password" id="adminPass" class="form-control" placeholder="••••••••" required>
+            <button type="button" class="btn btn-outline-secondary" id="togglePass" aria-label="Mostrar/Ocultar contraseña">
+              <i class="bi bi-eye"></i>
+            </button>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="submit" class="btn btn-primary w-100">Entrar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- OTP (verificación por FORM en el mismo index) -->
+<div class="modal fade" id="modalOTP" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content rounded-4">
+      <div class="modal-header">
+        <h5 class="modal-title">Confirmar Código OTP</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+
+      <form id="otpFormModal" method="post" action="{{ url_for('verify_otp') }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <div class="mb-2 text-muted small">
+            Teléfono: <b id="otpTelView">{{ session.get('otp_tel','') }}</b>
+          </div>
+          <input type="hidden" name="telefono" value="{{ session.get('otp_tel','') }}">
+          <label class="form-label">Código de 6 dígitos</label>
+          <input id="otpCodigo" name="codigo" class="form-control" maxlength="6" placeholder="000000" required>
+
+          {% with msgs = get_flashed_messages(category_filter=['danger','warning']) %}
+            {% if msgs %}
+              <div class="text-danger small mt-2">{{ msgs[-1] }}</div>
+            {% endif %}
+          {% endwith %}
+        </div>
+        <div class="modal-footer">
+          <button id="otpBtn" type="submit" class="btn btn-success w-100">Confirmar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* ===== Tema: respeta appcfg.theme_default (auto|light|dark), guarda preferencia del usuario ===== */
+(function(){
+  const prefKey = 'ui-theme';
+  const cfgDefault = '{{ (appcfg.theme_default or "auto")|lower }}'; // desde config
+  const root = document.documentElement;
+
+  function apply(theme){
+    if(theme === 'auto'){
+      const m = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      root.setAttribute('data-bs-theme', m ? 'dark' : 'light');
+    }else{
+      root.setAttribute('data-bs-theme', theme);
+    }
+  }
+
+  const stored = localStorage.getItem(prefKey); // 'light'|'dark'|'auto'
+  apply(stored || cfgDefault);
+
+  // botón toggle: rota entre light <-> dark (si estabas en auto, toma el actual y cambia al otro)
+  const btn = document.getElementById('btnTheme');
+  if(btn){
+    function paintIcon(){
+      const isDark = (root.getAttribute('data-bs-theme')==='dark');
+      btn.innerHTML = isDark
+        ? '<i class="bi bi-moon-fill"></i><span class="mini d-none d-sm-inline">Tema</span>'
+        : '<i class="bi bi-sun-fill"></i><span class="mini d-none d-sm-inline">Tema</span>';
+    }
+    paintIcon();
+    btn.addEventListener('click', ()=>{
+      const current = root.getAttribute('data-bs-theme') || 'light';
+      const next = (current === 'dark') ? 'light' : 'dark';
+      apply(next);
+      localStorage.setItem(prefKey, next);
+      paintIcon();
+    });
+  }
+
+  // si estás en auto y cambia el SO, actualiza
+  if(!stored || stored==='auto'){
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', ()=>apply('auto'));
+  }
+})();
+
+/* ===== Reabrir modales según sesión ===== */
+document.addEventListener('DOMContentLoaded', () => {
+  const openAdminOnce = {{ 'true' if session.pop('open_admin_modal_once', False) else 'false' }};
+  if (openAdminOnce) {
+    const el = document.getElementById('modalAdmin');
+    if (el) new bootstrap.Modal(el).show();
+  }
+  const openEmpOnce = {{ 'true' if session.pop('otp_open_once', False) else 'false' }};
+  if (openEmpOnce) {
+    const el = document.getElementById('modalEmpleado');
+    if (el) new bootstrap.Modal(el).show();
+  }
+  const openOtpOnce = {{ 'true' if session.pop('otp_show_otp', False) else 'false' }};
+  if (openOtpOnce) {
+    const otpEl = document.getElementById('modalOTP');
+    if (otpEl) {
+      const m = new bootstrap.Modal(otpEl);
+      m.show();
+      setTimeout(() => document.getElementById('otpCodigo')?.focus(), 150);
+    }
+  }
+
+  // Mostrar/Ocultar contraseña admin
+  const toggleBtn = document.getElementById('togglePass');
+  const passInput = document.getElementById('adminPass');
+  if (toggleBtn && passInput) {
+    toggleBtn.addEventListener('click', () => {
+      const isPass = passInput.type === 'password';
+      passInput.type = isPass ? 'text' : 'password';
+      toggleBtn.innerHTML = isPass
+        ? '<i class="bi bi-eye-slash"></i>'
+        : '<i class="bi bi-eye"></i>';
+    });
+  }
+
+  // Validación E.164 en modal Empleado
+  (function(){
+    const form = document.getElementById('formTel');
+    if(!form) return;
+    const tel = document.getElementById('telefono');
+    const err = document.getElementById('errorTel');
+    const btn = document.getElementById('btnSolicitar');
+    const re  = /^\+\d{8,15}$/;
+
+    function normalize(v){ return (v || '').replace(/\s|-/g,''); }
+    function validate(){
+      const v = normalize(tel.value);
+      tel.value = v;
+      const ok = re.test(v);
+      err.style.display = ok ? 'none' : 'block';
+      tel.classList.toggle('is-invalid', !ok);
+      return ok;
+    }
+    tel.addEventListener('input', validate);
+    form.addEventListener('submit', function(ev){
+      if(!validate()){
+        ev.preventDefault(); ev.stopPropagation(); tel.focus();
+      }else{
+        btn && (btn.disabled = true);
+      }
+    });
+  })();
+});
+</script>
+{% endblock %}

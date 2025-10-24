@@ -1,0 +1,538 @@
+{% extends "admin/base.html" %}
+{% block title %}Pagos · Administración{% endblock %}
+
+{% block content %}
+<style>
+  .pending-card{
+    border:1px solid rgba(220,53,69,.35);
+    box-shadow:0 0 0 2px rgba(220,53,69,.08);
+    background: var(--bs-body-bg);
+    border-radius:1rem;
+  }
+  .pending-glow{ box-shadow:0 0 0 2px rgba(220,53,69,.18), 0 10px 30px -12px rgba(220,53,69,.25); }
+  @media (prefers-color-scheme: dark){
+    .pending-card{ border-color:rgba(220,53,69,.45); background: rgba(220,53,69,.02); }
+  }
+  .mini-chip{
+    display:inline-flex;align-items:center;gap:.35rem;
+    padding:.2rem .55rem;border-radius:999px;
+    border:1px solid var(--bs-border-color-translucent);
+    background: var(--bs-tertiary-bg); font-size:.75rem;
+  }
+  .stat{ display:flex;flex-direction:column;gap:.15rem; }
+  .stat .label{ font-size:.75rem;color:var(--bs-secondary-color) }
+  .stat .value{ font-weight:600 }
+</style>
+
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+  <div>
+    <h4 class="mb-1">Pagos (Semana de Canje)</h4>
+    <div class="text-muted small">
+      Semana: <strong>{{ semana_inicio.strftime('%a %d %b %Y') }}</strong> → <strong>{{ semana_fin.strftime('%a %d %b %Y') }}</strong> (Vie → Jue)
+      {% if include_zero %}<span class="badge bg-info ms-2">Incluyendo 0 h</span>{% endif %}
+    </div>
+  </div>
+
+  <div class="d-flex flex-wrap align-items-center gap-2">
+    <a class="btn btn-sm btn-outline-secondary"
+       href="{{ url_for('admin_pagos', week_end=prev_end.isoformat(), show='all' if include_zero else None) }}">← Semana anterior</a>
+
+    <form class="d-flex align-items-center gap-2" method="get" action="{{ url_for('admin_pagos') }}">
+      <label class="small text-muted">Jueves:</label>
+      <input type="date" class="form-control form-control-sm" name="week_end" value="{{ semana_fin.isoformat() }}">
+      {% if include_zero %}<input type="hidden" name="show" value="all">{% endif %}
+      <button class="btn btn-sm btn-outline-secondary">Ir</button>
+    </form>
+
+    <a class="btn btn-sm btn-outline-secondary"
+       href="{{ url_for('admin_pagos', week_end=next_end.isoformat(), show='all' if include_zero else None) }}">Semana siguiente →</a>
+
+    <a class="btn btn-sm {{ 'btn-primary' if include_zero else 'btn-outline-primary' }}"
+       href="{{ url_for('admin_pagos', week_end=semana_fin.isoformat(), show='all' if not include_zero else None) }}">
+       <i class="bi bi-people"></i> {{ 'Ocultar 0 h' if include_zero else 'Ver también 0 h' }}
+    </a>
+  </div>
+</div>
+
+<!-- Buscador -->
+<div class="row mb-3">
+  <div class="col-12 col-md-6">
+    <div class="input-group">
+      <span class="input-group-text"><i class="bi bi-search"></i></span>
+      <input id="searchInput" type="search" class="form-control" placeholder="Buscar por nombre del empleado..." aria-label="Buscar">
+      <button id="clearSearch" class="btn btn-outline-secondary" type="button" title="Limpiar">✕</button>
+    </div>
+    <div class="form-text small text-muted">Filtra ambos grids (pendientes y realizados) localmente.</div>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="row g-3 mb-3">
+  <div class="col-12 col-md-4">
+    <div class="card"><div class="card-body d-flex align-items-center justify-content-between">
+      <div><div class="text-muted small">Pendientes por pagar</div><div class="fs-3 fw-bold" id="kpiPendientes">{{ pendientes|length }}</div></div>
+      <i class="bi bi-cash-coin fs-2 text-muted"></i>
+    </div></div>
+  </div>
+  <div class="col-6 col-md-4">
+    <div class="card"><div class="card-body d-flex align-items-center justify-content-between">
+      <div>
+        <div class="text-muted small">Horas (canje)</div>
+        <div class="fs-3 fw-bold" id="kpiHoras">
+          {{ pendientes|map(attribute='horas_canje')|sum if pendientes and pendientes[0] is defined and 'horas_canje' in pendientes[0] else (pendientes|map(attribute='horas')|sum|round(2) if pendientes else '0.00') }}
+        </div>
+      </div>
+      <i class="bi bi-clock-history fs-2 text-muted"></i>
+    </div></div>
+  </div>
+  <div class="col-6 col-md-4">
+    <div class="card"><div class="card-body d-flex align-items-center justify-content-between">
+      <div><div class="text-muted small">Subtotal pendiente</div><div class="fs-3 fw-bold" id="kpiSubtotal">$ {{ pendientes|map(attribute='subtotal')|sum|round(2) if pendientes else '0.00' }}</div></div>
+      <i class="bi bi-wallet2 fs-2 text-muted"></i>
+    </div></div>
+  </div>
+</div>
+
+<!-- PENDIENTES (CARDS) -->
+<div class="card mb-4">
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <div class="fw-semibold">Pendientes de pago (semana en canje)</div>
+    <span class="badge bg-danger" id="badgePend">{{ pendientes|length }}</span>
+  </div>
+  <div class="card-body">
+    {% if pendientes and pendientes|length > 0 %}
+      <div class="row g-3" id="gridPendientes">
+        {% for p in pendientes %}
+        {% set horas_canje = (p.horas_canje if 'horas_canje' in p else (p.horas or 0)) %}
+        <div class="col-12 col-md-6 col-lg-4" data-nombre="{{ p.nombre|lower }}">
+          <div class="h-100 p-3 pending-card pending-glow">
+            <div class="d-flex align-items-start justify-content-between">
+              <div class="min-w-0">
+                <div class="fw-semibold text-truncate">{{ p.nombre }}</div>
+                {% if p.telefono %}<div class="small text-muted">{{ p.telefono }}</div>{% endif %}
+              </div>
+              <span class="mini-chip text-danger border-danger-subtle">
+                <i class="bi bi-exclamation-diamond-fill"></i> Pendiente
+              </span>
+            </div>
+
+            <div class="d-flex gap-4 mt-3">
+              <div class="stat flex-grow-1">
+                <div class="label">Horas (canje)</div>
+                <div class="value">{{ '%.2f'|format(horas_canje) }}</div>
+              </div>
+              <div class="stat flex-grow-1">
+                <div class="label">Subtotal</div>
+                <div class="value">$ {{ '%.2f'|format(p.subtotal or 0) }}</div>
+              </div>
+            </div>
+
+            <div class="d-grid mt-3">
+              <button
+                class="btn btn-danger"
+                data-bs-toggle="modal"
+                data-bs-target="#registrarPagoModal"
+                data-uid="{{ p.usuario_id }}"
+                data-nombre="{{ p.nombre }}"
+                data-telefono="{{ p.telefono or '' }}"
+                data-horas="{{ '%.2f'|format(horas_canje) }}"
+                data-subtotal="{{ '%.2f'|format(p.subtotal or 0) }}"
+                data-semana="{{ semana_fin.isoformat() }}"
+              >
+                <i class="bi bi-upload"></i> Procesar pago
+              </button>
+            </div>
+            <div class="mt-2 text-end">
+              <a class="small" href="{{ url_for('admin_pagos_historial', uid=p.usuario_id) }}"><i class="bi bi-clock-history"></i> Historial</a>
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-muted">No hay pendientes de pago en esta semana.</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- REALIZADOS (CARDS) -->
+<div class="card">
+  <div class="card-header d-flex align-items-center justify-content-between">
+    <div class="fw-semibold">Pagos realizados ({{ semana_inicio.strftime('%d/%m') }}–{{ semana_fin.strftime('%d/%m') }})</div>
+    <span class="badge bg-success">{{ pagados|length if pagados else 0 }}</span>
+  </div>
+
+  <div class="card-body">
+    {% if pagados and pagados|length > 0 %}
+      <div class="row g-3" id="gridPagados">
+        {% for pg in pagados %}
+        <div class="col-12 col-md-6 col-lg-4" data-nombre="{{ (pg.usuario_nombre or (pg.usuario and pg.usuario.nombre) or 'Empleado')|lower }}">
+          <div
+            class="border rounded-4 p-3 h-100 position-relative pago-card"
+            role="button" tabindex="0"
+            data-nombre="{{ (pg.usuario_nombre or (pg.usuario and pg.usuario.nombre)) or 'Empleado' }}"
+            data-horas="{{ '%.2f'|format(pg.horas or 0) }}"
+            data-subtotal="{{ '%.2f'|format(pg.subtotal or 0) }}"
+            data-confirmado="{{ '1' if pg.verificado_empleado else '0' }}"
+            data-recibo="{{ pg.recibo_path or '' }}"
+            data-recibo-static="{{ url_for('static', filename=pg.recibo_path) if pg.recibo_path else '' }}"
+          >
+            <!-- Acciones (EDITAR/ELIMINAR) - no abrir modal de vista -->
+            <div class="position-absolute" style="top:10px; right:10px; z-index:5;">
+              <button class="btn btn-sm btn-light me-1 stop-prop" title="Editar" data-bs-toggle="modal" data-bs-target="#editPagoModal"
+                      data-pago-id="{{ pg.id }}" data-horas="{{ pg.horas or 0 }}" data-subtotal="{{ pg.subtotal or 0 }}"
+                      data-recibo="{{ pg.recibo_path or '' }}">
+                <i class="bi bi-pencil"></i>
+              </button>
+              <form method="post" action="{{ url_for('admin_pagos_eliminar', pago_id=pg.id) }}" class="d-inline stop-prop"
+                    onsubmit="return confirm('¿Eliminar colilla y registro de este pago? Esta acción no se puede deshacer.');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-light text-danger" title="Eliminar">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+            </div>
+
+            <div class="d-flex align-items-center justify-content-between">
+              <div class="fw-semibold text-truncate">{{ (pg.usuario_nombre or (pg.usuario and pg.usuario.nombre)) or 'Empleado' }}</div>
+              {% if pg.verificado_empleado %}
+                <span class="mini-chip text-success border-success-subtle" data-bs-toggle="tooltip" title="El empleado confirmó la recepción">
+                  <i class="bi bi-check-circle-fill"></i> Confirmado
+                </span>
+              {% else %}
+                <span class="mini-chip text-primary border-primary-subtle" data-bs-toggle="tooltip" title="Pagado; falta confirmación del empleado">
+                  <i class="bi bi-cash-coin"></i> Pagado
+                </span>
+              {% endif %}
+            </div>
+
+            <div class="small text-muted mb-2">Semana: {{ semana_inicio.strftime('%d/%m') }}–{{ semana_fin.strftime('%d/%m') }}</div>
+
+            <div class="d-flex gap-4 mb-2">
+              <div class="stat flex-grow-1">
+                <div class="label">Horas</div>
+                <div class="value">{{ '%.2f'|format(pg.horas or 0) }}</div>
+              </div>
+              <div class="stat flex-grow-1">
+                <div class="label">Subtotal</div>
+                <div class="value">$ {{ '%.2f'|format(pg.subtotal or 0) }}</div>
+              </div>
+            </div>
+
+            {% if pg.recibo_path %}
+              {% set is_pdf = pg.recibo_path.lower().endswith('.pdf') %}
+              <div class="mt-2">
+                {% if is_pdf %}
+                  <a class="btn btn-sm btn-outline-primary stop-prop" href="{{ url_for('static', filename=pg.recibo_path) }}" target="_blank">
+                    <i class="bi bi-file-earmark-pdf"></i> Ver PDF
+                  </a>
+                {% else %}
+                  <a class="stop-prop" href="{{ url_for('static', filename=pg.recibo_path) }}" target="_blank">
+                    <img src="{{ url_for('static', filename=pg.recibo_path) }}" alt="Colilla" class="img-fluid rounded" style="max-height:160px;object-fit:contain;">
+                  </a>
+                {% endif %}
+              </div>
+            {% endif %}
+
+            <div class="d-flex align-items-center text-primary small mt-2">
+              <i class="bi bi-eye me-1"></i> Ver colilla y detalles
+            </div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="text-muted">Aún no hay pagos cargados para esta semana.</div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- MODAL REGISTRAR (pendientes) -->
+<div class="modal fade" id="registrarPagoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="registrarPagoForm" method="post" action="{{ url_for('admin_pagos_subir') }}" enctype="multipart/form-data" class="modal-content">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <input type="hidden" name="usuario_id" id="regUsuarioId" value="">
+      <input type="hidden" name="semana_fin" id="regSemanaFin" value="{{ semana_fin.isoformat() }}">
+
+      <div class="modal-header">
+        <h6 class="modal-title">Procesar pago</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <div class="small text-muted">Empleado</div>
+          <div id="regNombre" class="fw-semibold">—</div>
+          <div id="regTelefono" class="small text-muted">—</div>
+        </div>
+
+        <div class="row g-2">
+          <div class="col-6">
+            <label class="form-label small">Horas (canje)</label>
+            <input class="form-control" type="number" step="0.01" min="0" name="horas" id="regHoras" value="0">
+            <div class="form-text small text-muted">Cámbialo a tu var real (p.ej. <code>p.horas_canje</code> del service).</div>
+          </div>
+          <div class="col-6">
+            <label class="form-label small">Subtotal ($)</label>
+            <input class="form-control" type="number" step="0.01" min="0" name="subtotal" id="regSubtotal" value="0">
+          </div>
+        </div>
+
+        <div class="mt-2">
+          <label class="form-label small">Colilla (imagen o PDF)</label>
+          <input class="form-control" type="file" name="recibo" accept="image/*,application/pdf" required>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-danger">Registrar pago</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL EDITAR (realizados) -->
+<div class="modal fade" id="editPagoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <form id="editPagoForm" method="post" action="" enctype="multipart/form-data" class="modal-content">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="modal-header"><h6 class="modal-title">Editar pago</h6><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+      <div class="modal-body">
+        <div class="mb-2">
+          <label class="form-label small">Horas</label>
+          <input name="horas" id="editHoras" type="number" step="0.01" min="0" class="form-control">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small">Subtotal ($)</label>
+          <input name="subtotal" id="editSubtotal" type="number" step="0.01" min="0" class="form-control">
+        </div>
+        <div class="mb-2">
+          <label class="form-label small">Cambiar colilla (opcional)</label>
+          <input name="recibo" id="editRecibo" type="file" accept="image/*,application/pdf" class="form-control">
+          <div id="editPreviewWrap" class="mt-2 d-none">
+            <div class="small text-muted mb-1">Colilla actual:</div>
+            <a id="editPreviewLink" href="#" target="_blank">
+              <img id="editPreviewImg" src="#" alt="Colilla" class="img-fluid rounded" style="max-height:120px;object-fit:contain;">
+            </a>
+          </div>
+        </div>
+        <div class="form-text small text-muted">Si adjuntas una nueva colilla, reemplaza la anterior.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="submit" class="btn btn-primary">Guardar cambios</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL VER (realizados - solo lectura) -->
+<div class="modal fade" id="viewPagoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h6 class="modal-title">Detalle del pago</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-12 col-lg-5">
+            <div class="mb-2">
+              <div class="small text-muted">Empleado</div>
+              <div id="vNombre" class="fw-semibold">—</div>
+            </div>
+            <div class="row g-2">
+              <div class="col-6">
+                <div class="small text-muted">Horas</div>
+                <div id="vHoras" class="fw-semibold">0.00</div>
+              </div>
+              <div class="col-6">
+                <div class="small text-muted">Subtotal</div>
+                <div id="vSubtotal" class="fw-semibold">$ 0.00</div>
+              </div>
+            </div>
+            <div class="mt-2">
+              <span id="vEstado" class="mini-chip">
+                <i class="bi bi-cash-coin"></i> —
+              </span>
+            </div>
+          </div>
+
+          <div class="col-12 col-lg-7">
+            <div id="vPreviewWrap" class="border rounded-3 p-2" style="min-height:220px;">
+              <div id="vNoColilla" class="text-muted small">Sin colilla adjunta.</div>
+
+              <!-- Imagen -->
+              <a id="vImgLink" href="#" target="_blank" class="d-none">
+                <img id="vImg" src="#" alt="Colilla" class="img-fluid rounded w-100" style="max-height:420px;object-fit:contain;">
+              </a>
+
+              <!-- PDF -->
+              <div id="vPdfWrap" class="ratio ratio-4x3 d-none">
+                <iframe id="vPdf" src="" title="Colilla PDF" loading="lazy"></iframe>
+              </div>
+            </div>
+            <div class="small text-muted mt-2">Haz clic sobre la colilla para abrirla en una pestaña nueva.</div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button id="vEditarBtn" type="button" class="btn btn-outline-secondary d-none">
+          <i class="bi bi-pencil"></i> Editar este pago
+        </button>
+        <button type="button" class="btn btn-primary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* Buscador local */
+const searchInput = document.getElementById('searchInput');
+const clearSearch = document.getElementById('clearSearch');
+function doFilter(term) {
+  term = (term||'').trim().toLowerCase();
+  document.querySelectorAll('#gridPendientes [data-nombre], #gridPagados [data-nombre]').forEach(el=>{
+    const name = (el.getAttribute('data-nombre') || el.textContent || '').toLowerCase();
+    el.style.display = (!term || name.includes(term)) ? '' : 'none';
+  });
+}
+searchInput?.addEventListener('input', e => doFilter(e.target.value));
+clearSearch?.addEventListener('click', () => { searchInput.value=''; doFilter(''); });
+
+/* Tooltips */
+const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+tooltipTriggerList.map(el => new bootstrap.Tooltip(el));
+
+/* Modal REGISTRAR (pendiente) */
+const registrarModal = document.getElementById('registrarPagoModal');
+registrarModal?.addEventListener('show.bs.modal', (ev) => {
+  const btn = ev.relatedTarget;
+  const uid = btn.getAttribute('data-uid');
+  const nombre = btn.getAttribute('data-nombre') || '—';
+  const tel = btn.getAttribute('data-telefono') || '—';
+  const hrs = btn.getAttribute('data-horas') || '0';
+  const sub = btn.getAttribute('data-subtotal') || '0';
+  const sem = btn.getAttribute('data-semana') || '{{ semana_fin.isoformat() }}';
+
+  document.getElementById('regUsuarioId').value = uid;
+  document.getElementById('regSemanaFin').value = sem;
+  document.getElementById('regNombre').textContent = nombre;
+  document.getElementById('regTelefono').textContent = tel;
+  document.getElementById('regHoras').value = parseFloat(hrs).toFixed(2);
+  document.getElementById('regSubtotal').value = parseFloat(sub).toFixed(2);
+});
+
+/* Modal EDITAR (realizado) */
+const editModal = document.getElementById('editPagoModal');
+editModal?.addEventListener('show.bs.modal', (event) => {
+  const button = event.relatedTarget;
+  const pagoId = button.getAttribute('data-pago-id');
+  const horas = button.getAttribute('data-horas') || 0;
+  const subtotal = button.getAttribute('data-subtotal') || 0;
+  const recibo = button.getAttribute('data-recibo') || '';
+
+  document.getElementById('editHoras').value = Number(horas).toFixed(2);
+  document.getElementById('editSubtotal').value = Number(subtotal).toFixed(2);
+
+  const form = document.getElementById('editPagoForm');
+  form.action = "{{ url_for('admin_pagos_editar', pago_id=0) }}".replace('0', pagoId);
+
+  const wrap = document.getElementById('editPreviewWrap');
+  const link = document.getElementById('editPreviewLink');
+  const img  = document.getElementById('editPreviewImg');
+  if (recibo && !recibo.toLowerCase().endswith('.pdf')) {
+    const href = "{{ url_for('static', filename='__X__') }}".replace('__X__', recibo);
+    link.href = href;
+    img.src = href;
+    wrap.classList.remove('d-none');
+  } else {
+    wrap.classList.add('d-none');
+    img.src = '#'; link.href = '#';
+  }
+});
+
+/* Evitar que acciones (editar/eliminar) abran el modal de vista */
+document.querySelectorAll('.stop-prop').forEach(el=>{
+  el.addEventListener('click', e=> e.stopPropagation());
+  el.addEventListener('keydown', e=> e.stopPropagation());
+});
+
+/* Modal VER (al hacer clic en card de realizados) */
+document.querySelectorAll('.pago-card').forEach(card=>{
+  const open = () => {
+    const modalEl = document.getElementById('viewPagoModal');
+    const m = new bootstrap.Modal(modalEl);
+
+    const nombre = card.getAttribute('data-nombre') || '—';
+    const horas = card.getAttribute('data-horas') || '0.00';
+    const subtotal = card.getAttribute('data-subtotal') || '0.00';
+    const confirmado = card.getAttribute('data-confirmado') === '1';
+    const recibo = card.getAttribute('data-recibo') || '';
+    const reciboStatic = card.getAttribute('data-recibo-static') || '';
+
+    // Texto
+    document.getElementById('vNombre').textContent = nombre;
+    document.getElementById('vHoras').textContent = Number(horas).toFixed(2);
+    document.getElementById('vSubtotal').textContent = '$ ' + Number(subtotal).toFixed(2);
+
+    const vEstado = document.getElementById('vEstado');
+    if (confirmado) {
+      vEstado.className = 'mini-chip text-success border-success-subtle';
+      vEstado.innerHTML = '<i class="bi bi-check-circle-fill"></i> Confirmado';
+    } else {
+      vEstado.className = 'mini-chip text-primary border-primary-subtle';
+      vEstado.innerHTML = '<i class="bi bi-cash-coin"></i> Pagado (pendiente de confirmación)';
+    }
+
+    // Colilla
+    const noColilla = document.getElementById('vNoColilla');
+    const imgLink = document.getElementById('vImgLink');
+    const img = document.getElementById('vImg');
+    const pdfWrap = document.getElementById('vPdfWrap');
+    const pdf = document.getElementById('vPdf');
+
+    noColilla.classList.add('d-none');
+    imgLink.classList.add('d-none');
+    pdfWrap.classList.add('d-none');
+    img.src = '#'; imgLink.href = '#'; pdf.src = '';
+
+    const path = reciboStatic || (recibo ? "{{ url_for('static', filename='__X__') }}".replace('__X__', recibo) : '');
+
+    if (!path) {
+      noColilla.classList.remove('d-none');
+    } else if (path.toLowerCase().endsWith('.pdf')) {
+      pdf.src = path;
+      pdfWrap.classList.remove('d-none');
+    } else {
+      img.src = path;
+      imgLink.href = path;
+      imgLink.classList.remove('d-none');
+    }
+
+    // Desde este modal abrir directamente el de editar (atajo)
+    const editarBtn = document.getElementById('vEditarBtn');
+    const editTrigger = card.querySelector('[data-bs-target="#editPagoModal"]');
+    if (editTrigger) {
+      editarBtn.classList.remove('d-none');
+      editarBtn.onclick = () => {
+        m.hide();
+        setTimeout(() => editTrigger.click(), 180);
+      };
+    } else {
+      editarBtn.classList.add('d-none');
+      editarBtn.onclick = null;
+    }
+
+    m.show();
+  };
+
+  card.addEventListener('click', open);
+  card.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); }
+  });
+});
+</script>
+{% endblock %}

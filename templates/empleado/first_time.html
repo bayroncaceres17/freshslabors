@@ -1,0 +1,162 @@
+{% extends "empleado/base_empleado.html" %}
+{% block title %}Completar datos (primera vez){% endblock %}
+
+{% block emp_content %}
+<style>
+  /* estilos locales, compactos */
+  .onb-wrap{display:grid;grid-template-columns:1.1fr .9fr;gap:18px}
+  @media (max-width:992px){ .onb-wrap{grid-template-columns:1fr} }
+  .onb-note{
+    background:linear-gradient(180deg,rgba(16,185,129,.10),rgba(16,185,129,.06));
+    border:1px solid rgba(16,185,129,.35);
+    border-radius:14px; padding:14px 16px;
+  }
+  .onb-note h6{margin:0 0 8px;font-weight:800}
+  .onb-note .mini{font-size:.92rem;color:#cfeee3}
+  .onb-ul{margin:10px 0 0;padding-left:18px}
+  .onb-ul li{margin-bottom:6px}
+  .help-inline{font-size:.9rem;color:#b8c3ff}
+</style>
+
+<h3 class="mb-1">Completa tus datos</h3>
+<p class="text-muted">Esta información se usa para validar identidad y realizar tus pagos.</p>
+
+<div class="onb-wrap">
+  <!-- FORM -->
+  <div>
+    <div class="alert alert-info">
+      <strong>Exigencias y condiciones:</strong>
+      <div class="mb-0">
+        Debes usar los <b>implementos de seguridad</b> requeridos (gafas, guantes, botas, chaleco
+        y demás indicados por la tarea). La modalidad de pago es <b>semanal</b>:
+        se trabaja de <b>viernes a jueves</b> y el pago corresponde a esa semana.
+        El <b>correo electrónico es opcional</b>; si no lo ingresas, se asignará uno automático.
+        Más adelante <u>solo podrás editar tu correo</u>; los demás datos requieren a <b>Administración</b>.
+      </div>
+    </div>
+
+    <form method="post" class="needs-validation" novalidate id="onbForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <!-- marcador para saber si el email fue autogenerado (por si quieres tratarlo distinto en backend) -->
+      <input type="hidden" name="email_autogenerado" id="emailAutogenerado" value="0">
+
+      <div class="mb-3">
+        <label class="form-label">Nombre legal para firma</label>
+        <input class="form-control" name="nombre_legal_firma" required placeholder="Como aparece en tu documento">
+        <div class="invalid-feedback">Requerido.</div>
+        <div class="help-inline">Verificamos tu identidad con este nombre.</div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Teléfono (verificación)</label>
+        <input class="form-control" name="telefono" id="inpTelefono"
+               placeholder="+1 7865551234"
+               required
+               pattern="^\+[1-9]\d{7,14}$"
+               title="Incluye '+' y entre 8 y 15 dígitos (formato E.164, ej. +15715551234).">
+        <div class="invalid-feedback">Incluye prefijo país (E.164). Ej.: +1 7865551234</div>
+        <div class="help-inline">Debe comenzar con <b>+</b> y código de país. Ej.: <code>+57…</code>, <code>+52…</code>, <code>+1…</code></div>
+      </div>
+
+      <div class="row">
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Zelle — nombre del titular</label>
+          <input class="form-control" name="zelle_nombre" required placeholder="Nombre tal como aparece en Zelle">
+          <div class="invalid-feedback">Requerido.</div>
+          <div class="help-inline">El nombre exacto vinculado a esa cuenta Zelle.</div>
+        </div>
+        <div class="col-md-6 mb-3">
+          <label class="form-label">Zelle — correo o teléfono</label>
+          <input class="form-control" name="zelle_cuenta" required placeholder="correo@zelle.com o +1 7865551234">
+          <div class="invalid-feedback">Requerido.</div>
+          <div class="help-inline">El identificador que usas para recibir por Zelle.</div>
+        </div>
+      </div>
+
+      <div class="mb-3">
+        <label class="form-label">Correo electrónico (opcional)</label>
+        <input class="form-control" name="email" id="inpEmail" type="email" placeholder="tucorreo@dominio.com">
+        <div class="help-inline">
+          Si lo dejas vacío, asignaremos uno automático (no real) para tu ficha.
+        </div>
+      </div>
+
+      <div class="d-grid">
+        <button class="btn btn-success">Guardar y continuar</button>
+      </div>
+    </form>
+  </div>
+
+  <!-- TUTORIAL LATERAL -->
+  <aside class="onb-note">
+    <h6>¿Por qué pedimos esto?</h6>
+    <div class="mini">
+      <ul class="onb-ul">
+        <li><b>Nombre legal:</b> confirmar que todo esté correcto para firma y trazabilidad.</li>
+        <li><b>Teléfono con prefijo:</b> verificar el número asociado a tus accesos.</li>
+        <li><b>Zelle (nombre):</b> debe ser el nombre que aparece en la cuenta Zelle.</li>
+        <li><b>Zelle (correo/teléfono):</b> el identificador exacto vinculado a Zelle.</li>
+        <li><b>Exigencias:</b> EPP obligatorio; la semana laboral va de <b>viernes a jueves</b>.</li>
+      </ul>
+    </div>
+  </aside>
+</div>
+
+<script>
+  (function(){
+    const form  = document.getElementById('onbForm');
+    const tel   = document.getElementById('inpTelefono');
+    const email = document.getElementById('inpEmail');
+    const flagAuto = document.getElementById('emailAutogenerado');
+
+    // Normaliza teléfono: quita espacios/puntos/guiones y asegura + al inicio si ya tenía prefijo
+    function normalizePhone(raw){
+      if(!raw) return '';
+      let s = String(raw).trim().replace(/[\s().-]/g,'');
+      // Si empieza por 00 lo convertimos a +
+      if(/^00\d+/.test(s)) s = '+' + s.slice(2);
+      // Asegura que si tiene dígitos con + al inicio
+      if(!s.startsWith('+') && /^\d{8,15}$/.test(s)) s = '+' + s;
+      return s;
+    }
+
+    // Genera email autómatico MUY único (128 bits) ej: emp-20251014-7f3a...@autogen.invalid
+    function makeAutoEmail(){
+      const buf = new Uint8Array(16);
+      (window.crypto || window.msCrypto).getRandomValues(buf);
+      const hex = Array.from(buf).map(b=>b.toString(16).padStart(2,'0')).join('');
+      const ymd = new Date().toISOString().slice(0,10).replace(/-/g,'');
+      return `emp-${ymd}-${hex}@autogen.invalid`;
+    }
+
+    // Validación Bootstrap
+    Array.from(document.querySelectorAll('.needs-validation')).forEach(f=>{
+      f.addEventListener('submit', e=>{
+        // Normaliza teléfono antes de validar
+        if (tel){
+          const n = normalizePhone(tel.value);
+          tel.value = n;
+        }
+
+        // Si email viene vacío => autogenera
+        if (email && !email.value.trim()){
+          email.value = makeAutoEmail();
+          flagAuto.value = '1';
+        } else {
+          flagAuto.value = '0';
+        }
+
+        if(!f.checkValidity()){
+          e.preventDefault(); e.stopPropagation();
+        }
+        f.classList.add('was-validated');
+      }, false);
+    });
+
+    // Ayudita en blur del teléfono
+    tel?.addEventListener('blur', ()=>{ tel.value = normalizePhone(tel.value); });
+
+  })();
+</script>
+
+{% endblock %}

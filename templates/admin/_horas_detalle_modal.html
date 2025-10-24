@@ -1,0 +1,104 @@
+<div class="modal-header hdm">
+  <h5 class="modal-title">Detalle de Horas - {{ usuario.nombre }}</h5>
+  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+
+<div class="modal-body hdm">
+  <div class="row g-3">
+    <div class="col-md-3">
+      <div class="card hdm-card text-center p-3">
+        <div class="fs-4 fw-bold">{{ resumen.horas }}h</div>
+        <div class="text-muted small">Total Horas</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card hdm-card text-center p-3">
+        <div class="fs-4 fw-bold">${{ '%.2f'|format(resumen.total) }}</div>
+        <div class="text-muted small">Total Ganado</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card hdm-card text-center p-3">
+        <div class="fs-4 fw-bold">{{ resumen.tareas }}</div>
+        <div class="text-muted small">Tareas</div>
+      </div>
+    </div>
+    <div class="col-md-3">
+      <div class="card hdm-card text-center p-3">
+        <div class="fs-4 fw-bold">{{ sanciones|length }}</div>
+        <div class="text-muted small">Amonestaciones</div>
+      </div>
+    </div>
+  </div>
+
+  {% if sanciones %}
+  <div class="card hdm-card mt-3 p-3">
+    <div class="fw-semibold mb-2">Historial de Amonestaciones</div>
+    {% for s in sanciones %}
+      <div class="hdm-alert-warn py-2 px-3 mb-2 rounded-3 border">
+        <div class="small">{{ s.motivo or 'Amonestación' }}</div>
+        <div class="text-muted small">{{ s.created_at or '' }} · Tarea: {{ s.tarea.nombre if s.tarea else '-' }}</div>
+      </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="card hdm-card mt-3 p-3">
+    <div class="fw-semibold mb-2">Registro Detallado por Día</div>
+    {% for it in items %}
+      <div class="hdm-day row-soft border rounded p-2 mb-2">
+        <div class="d-flex justify-content-between">
+          <div><strong>{{ it.fecha }}</strong> — {{ it.tarea }} (Turno {{ it.turno }})</div>
+          <div class="fw-semibold">{{ it.linea }}</div>
+        </div>
+        <div class="small text-muted mt-1">
+          <span class="me-2">✅ Inicio: {{ 'sí' if it.checks.inicio else 'no' }}</span>
+          <span class="me-2">☑ Medio Día: {{ 'sí' if it.checks.medio else 'no' }}</span>
+          <span>✅ Salida: {{ 'sí' if it.checks.salida else 'no' }}</span>
+        </div>
+      </div>
+    {% else %}
+      <div class="text-muted">Sin registros.</div>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="modal-footer hdm">
+  <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+</div>
+
+<style>
+/* ====== Dark-friendly (scoped) ====== */
+.hdm .modal-title{ color: var(--bs-body-color); }
+
+/* Tarjetas KPI y contenedores */
+.hdm .hdm-card{
+  background: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  border: 1px solid var(--bs-border-color);
+  box-shadow: 0 6px 14px rgba(0,0,0,.05);
+}
+
+/* “Suave” para filas de día (reemplaza el inline style) */
+.hdm .row-soft{
+  background: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 38%);
+}
+
+/* Aviso de amonestación, compatible con noche */
+.hdm .hdm-alert-warn{
+  background: color-mix(in oklab, var(--bs-warning), transparent 88%);
+  color: color-mix(in oklab, var(--bs-warning), #000 30%);
+  border-color: color-mix(in oklab, var(--bs-warning), transparent 70%);
+}
+
+/* Sutilezas tipográficas */
+.hdm .text-muted{ color: var(--bs-secondary-color) !important; }
+
+/* Bordes y cards del propio modal */
+.hdm.modal-header,
+.hdm.modal-footer{
+  background: var(--bs-body-bg);
+  color: var(--bs-body-color);
+  border-color: var(--bs-border-color);
+}
+</style>

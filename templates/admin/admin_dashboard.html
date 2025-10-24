@@ -1,0 +1,279 @@
+{% extends "admin/base.html" %}
+{% block title %}Dashboard{% endblock %}
+
+{# === Estilos: van en el <head> del base === #}
+{% block styles %}
+<style>
+  /* Scope para no “ensuciar” otras vistas */
+  .dash .card-soft{
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 14px;
+    box-shadow: 0 8px 18px rgba(0,0,0,.06);
+  }
+
+  .dash .tutorial{
+    padding: .75rem 1rem;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 12px;
+    background: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 30%);
+  }
+  .dash .tutorial h6{ margin:0 0 .5rem; color: var(--bs-body-color); }
+  .dash .tip{ display:flex; gap:.6rem; align-items:flex-start; padding:.5rem .6rem; border-radius:10px; }
+  .dash .tip i{ opacity:.9; color: var(--bs-primary); }
+  .dash .tip + .tip{ margin-top:.25rem; }
+
+  /* ======= KPIs ======= */
+  .dash .kpi{
+    border: 1px solid var(--bs-border-color);
+    border-radius: 14px;
+    padding: .9rem .9rem;
+    background: var(--bs-body-bg);
+    height: 100%;
+  }
+  .dash .kpi .label{ font-size:.88rem; color: var(--bs-secondary-color); }
+  .dash .kpi .value{ font-size:1.6rem; font-weight:700; color: var(--bs-body-color); line-height:1.1; }
+  .dash .kpi .icon{
+    width:40px; height:40px; border-radius:10px; display:grid; place-items:center;
+    background: color-mix(in oklab, var(--bs-primary), transparent 85%);
+    color: var(--bs-primary);
+  }
+  /* matices distintos para variedad */
+  .dash .k1 .icon{ background: color-mix(in oklab, var(--bs-primary), transparent 85%); color: var(--bs-primary); }
+  .dash .k2 .icon{ background: color-mix(in oklab, var(--bs-success), transparent 85%); color: var(--bs-success); }
+  .dash .k3 .icon{ background: color-mix(in oklab, var(--bs-warning), transparent 85%); color: var(--bs-warning); }
+  .dash .k4 .icon{ background: color-mix(in oklab, var(--bs-info),    transparent 85%); color: var(--bs-info); }
+
+  /* ======= Lista/Chips de tareas ======= */
+  .dash .task-chip{
+    border: 1px solid var(--bs-border-color);
+    border-radius: 12px;
+    padding: .75rem .9rem;
+    background: var(--bs-body-bg);
+    transition: background .15s ease, border-color .15s ease;
+  }
+  .dash .task-chip:hover{
+    background: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 25%);
+  }
+  .dash .task-chip.empty{
+    border-color: color-mix(in oklab, var(--bs-danger), var(--bs-border-color) 60%);
+    background: color-mix(in oklab, var(--bs-body-bg), var(--bs-danger) 4%);
+  }
+  .dash .task-chip .title{ font-weight:600; color: var(--bs-body-color); }
+  .dash .task-chip .meta{ font-size:.92rem; color: var(--bs-secondary-color); }
+
+  /* Botones responsivos: en XS se apilan y ocupan ancho completo */
+  .dash .chip-actions{
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .5rem;
+    min-width: 220px;
+  }
+  @media (min-width: 576px){
+    .dash .chip-actions{ grid-template-columns: auto auto; }
+  }
+
+  /* ======= Modal coherente con oscuro ======= */
+  .dash .modal-content{
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
+  }
+  .dash .modal-header, .dash .modal-footer{
+    background: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 20%);
+    border-color: var(--bs-border-color);
+  }
+
+  /* ======= Ajustes finos ======= */
+  .dash .text-danger-soft{ color: color-mix(in oklab, var(--bs-danger), var(--bs-body-color) 50%); }
+  .dash .btn-outline-secondary{ border-color: var(--bs-border-color); }
+
+  /* ======= Responsive ======= */
+  @media (max-width: 575.98px){
+    .dash .kpi .value{ font-size:1.4rem; }
+    .dash .task-chip .title{ margin-bottom: .25rem; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dash">
+
+  <!-- Ayuda -->
+  <div class="tutorial mb-3">
+    <h6 class="fw-semibold"><i class="bi bi-mortarboard me-1"></i> ¿Cómo usar el Dashboard?</h6>
+
+    <div class="tip">
+      <i class="bi bi-123"></i>
+      <div><strong>Números importantes:</strong> Arriba ves cuántas tareas activas tienes, informes del día, personal trabajando y horas semanales.</div>
+    </div>
+
+    <div class="tip">
+      <i class="bi bi-people"></i>
+      <div><strong>Empleados por tarea:</strong> Abajo ves qué empleados están asignados a cada tarea. Si una tarea no tiene empleados, aparece en rojo suave.</div>
+    </div>
+
+    <div class="tip">
+      <i class="bi bi-arrow-repeat"></i>
+      <div><strong>Actualización automática:</strong> Los números se actualizan solos cuando creas tareas, asignas empleados o se envían reportes.</div>
+    </div>
+
+    <div class="tip">
+      <i class="bi bi-lightning-charge"></i>
+      <div><strong>Acciones rápidas:</strong> Haz clic en “Empleados” para ver asignados o en “Ver más”.</div>
+    </div>
+  </div>
+
+  <!-- KPIs (1 col XS, 2 col SM, 4 col XL) -->
+  <div class="row g-3 mb-3 row-cols-1 row-cols-sm-2 row-cols-xl-4">
+    <div class="col">
+      <div class="kpi k1 d-flex align-items-center justify-content-between">
+        <div>
+          <div class="label">Tareas Activas</div>
+          <div class="value">{{ tarjetas.tareas_activas }}</div>
+        </div>
+        <div class="icon"><i class="bi bi-list-task fs-5"></i></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="kpi k2 d-flex align-items-center justify-content-between">
+        <div>
+          <div class="label">Informes Hoy</div>
+          <div class="value">{{ tarjetas.informes_hoy }}</div>
+        </div>
+        <div class="icon"><i class="bi bi-bar-chart fs-5"></i></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="kpi k3 d-flex align-items-center justify-content-between">
+        <div>
+          <div class="label">Personal Activo</div>
+          <div class="value">{{ tarjetas.personal_activo }}</div>
+        </div>
+        <div class="icon"><i class="bi bi-people fs-5"></i></div>
+      </div>
+    </div>
+    <div class="col">
+      <div class="kpi k4 d-flex align-items-center justify-content-between">
+        <div>
+          <div class="label">Horas Semanales</div>
+          <div class="value">{{ tarjetas.horas_semanales }}</div>
+        </div>
+        <div class="icon"><i class="bi bi-alarm fs-5"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lista de tareas -->
+  <div class="mb-2"><h6 class="fw-bold">Empleados por Tarea</h6></div>
+  <div class="d-flex flex-column gap-2">
+    {% for t in tareas %}
+      {% set asigns = t.asignaciones %}
+      <div class="task-chip {% if asigns|length==0 %}empty{% endif %}">
+        <div class="d-flex justify-content-between align-items-center gap-3 flex-wrap">
+          <div class="flex-grow-1 min-w-0">
+            <div class="title text-truncate">ID {{ t.id }} — {{ t.nombre }}</div>
+            <div class="meta">
+              {% if asigns|length > 0 %}
+                {{ asigns|length }} empleado{{ 's' if asigns|length>1 }}:
+                {%- for a in asigns[:2] -%}
+                  {{ a.usuario.nombre }} ({{ '$%0.0f/h' % (a.tarifa_hora or 0) }}){%- if not loop.last %}, {% endif -%}
+                {%- endfor -%}
+                {%- if asigns|length > 2 %} y {{ asigns|length-2 }} más{% endif -%}
+              {% else %}
+                <span class="text-danger">Sin empleados asignados</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Acciones móviles/desktop -->
+          <div class="chip-actions">
+            <button type="button" class="btn btn-success" data-open-emps data-task="{{ t.id }}">
+              <i class="bi bi-people"></i> Empleados
+            </button>
+            <a class="btn btn-outline-secondary" href="{{ url_for('admin_tareas') }}?tarea={{ t.id }}">
+              <i class="bi bi-box-arrow-up-right"></i> Ver más
+            </a>
+          </div>
+        </div>
+      </div>
+    {% else %}
+      <div class="text-muted">No hay tareas activas.</div>
+    {% endfor %}
+  </div>
+
+  <!-- Modal para listar empleados de una tarea (Dashboard) -->
+  <div class="modal fade" id="dashModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="dashModalTitle">Empleados de la tarea</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="dashModalBody">Cargando…</div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  // Modal
+  const modalEl   = document.getElementById('dashModal');
+  const modalBody = document.getElementById('dashModalBody');
+  const modalTit  = document.getElementById('dashModalTitle');
+  const dashModal = new bootstrap.Modal(modalEl);
+
+  // Abre el parcial de empleados en el modal
+  async function abrirEmpleados(tid){
+    if (!tid) return;
+    modalTit.textContent = 'Empleados de la tarea';
+    modalBody.innerHTML = 'Cargando…';
+    dashModal.show();
+    try{
+      const r = await fetch(`/admin/tarea/${tid}/empleados/modal?_=${Date.now()}`, {
+        headers: {'X-Requested-With':'XMLHttpRequest'},
+        cache: 'no-store'
+      });
+      const html = await r.text();
+      modalBody.innerHTML = html || '<div class="p-3 text-danger">Sin contenido.</div>';
+
+      // Re-ejecutar scripts embebidos del parcial (si los trae)
+      modalBody.querySelectorAll('script').forEach(old=>{
+        const s = document.createElement('script');
+        if (old.src){
+          s.src = old.src + (old.src.includes('?') ? '&' : '?') + '_=' + Date.now();
+        }else{
+          s.textContent = old.textContent;
+        }
+        if (old.type) s.type = old.type;
+        old.replaceWith(s);
+      });
+
+      // Hooks opcionales del parcial (si existen)
+      if (window.initEmpleadosUI) window.initEmpleadosUI(modalBody);
+      if (window.marcarAsistencia) window.marcarAsistencia(modalBody);
+
+    }catch(_){
+      modalBody.innerHTML = '<div class="p-3 text-danger">Error cargando empleados.</div>';
+    }
+  }
+
+  // Delegación: click en botones "Empleados"
+  document.addEventListener('click', (ev)=>{
+    const btn = ev.target.closest('[data-open-emps]');
+    if(!btn) return;
+    ev.preventDefault();
+    abrirEmpleados(btn.getAttribute('data-task'));
+  });
+
+  // Limpieza al cerrar
+  modalEl.addEventListener('hidden.bs.modal', ()=>{ modalBody.innerHTML = ''; });
+})();
+</script>
+{% endblock %}

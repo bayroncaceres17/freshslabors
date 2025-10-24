@@ -1,0 +1,253 @@
+<template id="tplModalSalida">
+  <style>
+    .jr-wrap { display: grid; gap: 12px; }
+    .jr-head { display: grid; gap: 10px; }
+    .jr-cards { display: grid; grid-template-columns: 1fr; gap: 10px; }
+    @media (min-width: 768px){ .jr-cards { grid-template-columns: 2fr 1fr; } }
+
+    .jr-card {
+      border: 1px solid var(--bs-border-color);
+      border-radius: 14px;
+      background: var(--bs-body-bg);
+      padding: 12px;
+      box-shadow: 0 6px 14px rgba(0,0,0,.06);
+    }
+
+    .jr-title { font-weight: 800; }
+    .jr-mini  { font-size: .9rem; color: var(--bs-secondary-color); }
+
+    .jr-chip{
+      display: inline-flex; align-items: center; gap: .35rem;
+      padding: .2rem .55rem; border-radius: 999px;
+      border: 1px solid var(--bs-border-color);
+      background: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 35%);
+      font-weight: 600; font-size: .8rem; color: var(--bs-body-color);
+    }
+    .jr-chip[data-v="turnos"]{
+      background: color-mix(in oklab, var(--bs-info), transparent 85%);
+      border-color: color-mix(in oklab, var(--bs-info), transparent 65%);
+    }
+    .jr-chip[data-v="emergencia"]{
+      background: color-mix(in oklab, var(--bs-danger), transparent 85%);
+      border-color: color-mix(in oklab, var(--bs-danger), transparent 65%);
+    }
+
+    .jr-actions-global{ display: grid; gap: 8px; }
+    @media (min-width: 576px){
+      .jr-actions-global { grid-template-columns: 1fr 1fr auto; align-items: center; }
+    }
+
+    @media (max-width: 575.98px){
+      .jr-table table thead { display: none; }
+      .jr-table table tbody tr{
+        display: grid; grid-template-columns: 1fr; gap: 8px;
+        border: 1px solid var(--bs-border-color);
+        border-radius: 12px; padding: 10px; margin-bottom: 10px;
+        background: var(--bs-body-bg);
+      }
+      .jr-table table tbody td{ display: grid; grid-template-columns: 130px 1fr; gap: 8px;
+        border: 0 !important; padding: 0 !important; }
+      .jr-table table tbody td::before{
+        content: attr(data-label); color: var(--bs-secondary-color); font-weight: 600; }
+      .jr-table .text-end{ text-align: left !important; }
+    }
+
+    .jr-toast-zone{ position: fixed; z-index: 1080; top: 16px; right: 16px; display: grid; gap: 8px; }
+    .jr-toast{
+      background: var(--bs-body-bg); color: var(--bs-body-color);
+      border: 1px solid var(--bs-border-color); border-radius: 12px;
+      box-shadow: 0 8px 16px rgba(0,0,0,.15);
+      padding: .6rem .8rem; display: flex; align-items: center; gap: .5rem;
+      animation: jr-fade-in .15s ease-out;
+    }
+    .jr-toast.success { border-color: color-mix(in oklab, var(--bs-success), transparent 60%); }
+    .jr-toast.error   { border-color: color-mix(in oklab, var(--bs-danger), transparent 60%); }
+    @keyframes jr-fade-in { from { opacity: 0; transform: translateY(-4px) } to { opacity: 1; transform: none } }
+
+    .form-control.form-control-sm.jr-time{ font-variant-numeric: tabular-nums; letter-spacing: .5px; }
+  </style>
+
+  <div class="jr-wrap">
+    <div class="jr-toast-zone" id="jrToastZone"></div>
+
+    <!-- CABECERA -->
+    <div class="jr-head">
+      <div class="jr-cards">
+        <div class="jr-card">
+          <div class="d-flex justify-content-between align-items-start flex-wrap">
+            <div>
+              <div class="jr-title" id="jrTaskName">Tarea</div>
+              <div class="jr-mini" id="jrTaskLocation">Ubicación: -</div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span class="jr-chip" id="jrTaskPriChip" data-v="">Tipo</span>
+              <span class="jr-chip"><i class="bi bi-globe2"></i><span id="jrTaskTZ">TZ</span></span>
+            </div>
+          </div>
+          <div class="jr-mini mt-2">
+            <i class="bi bi-calendar2-week"></i> Inicio tarea: <b id="jrTaskStart">—</b>
+            <span class="text-secondary mx-1">|</span>
+            <i class="bi bi-people"></i> Asignados: <b id="jrAssignedCount">0</b>
+          </div>
+        </div>
+
+        <div class="jr-card">
+          <div class="d-flex justify-content-between gap-2">
+            <div class="input-group" style="max-width:260px;">
+              <span class="input-group-text"><i class="bi bi-calendar3"></i></span>
+              <input type="date" class="form-control" id="jrFecha">
+            </div>
+            <button class="btn btn-outline-secondary" id="jrReload"><i class="bi bi-arrow-repeat"></i> Cargar</button>
+          </div>
+
+          <div class="jr-actions-global mt-3">
+            <div class="input-group">
+              <span class="input-group-text">Entrada p/todos</span>
+              <input type="time" class="form-control form-control-sm jr-time" id="jrAllIn">
+            </div>
+            <div class="input-group">
+              <span class="input-group-text">Salida p/todos</span>
+              <input type="time" class="form-control form-control-sm jr-time" id="jrAllOut">
+            </div>
+            <div class="d-grid">
+              <button class="btn btn-outline-warning" id="jrApplyAll">
+                <i class="bi bi-check2-square"></i> Aplicar
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FILTROS -->
+      <div class="input-group mt-2">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input id="jrSearch" class="form-control" placeholder="Buscar empleado...">
+      </div>
+      <div class="input-group mt-2" id="jrTurnoWrap" hidden>
+        <span class="input-group-text"><i class="bi bi-filter"></i> Turno</span>
+        <select id="jrTurno" class="form-select"></select>
+      </div>
+    </div>
+
+    <!-- TABLA -->
+    <div class="jr-table">
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead class="table-light">
+            <tr><th>Empleado</th><th>Teléfono</th><th>Entrada</th><th>Salida</th><th>WhatsApp</th><th class="text-end">Guardar</th></tr>
+          </thead>
+          <tbody id="jrTableBody"><tr><td colspan="6" class="text-muted">Cargando…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    if(window.initModalSalida) return;
+    window.initModalSalida=function(root,opts){
+      const tareaId=Number(opts?.tareaId||0);
+      const $=(s,c=root)=>(c||root).querySelector(s);
+      const CSRF=(document.querySelector('meta[name="csrf-token"]')?.content)
+        ||(document.querySelector('input[name="csrf_token"]')?.value)||'';
+      const toastZone=$('#jrToastZone'),tbody=$('#jrTableBody');
+      const jrFecha=$('#jrFecha'),jrReload=$('#jrReload');
+      const jrSearch=$('#jrSearch'),jrTurno=$('#jrTurno'),jrTurnoWrap=$('#jrTurnoWrap');
+      const jrAllIn=$('#jrAllIn'),jrAllOut=$('#jrAllOut'),jrApplyAll=$('#jrApplyAll');
+      const jrAssignedCount=$('#jrAssignedCount');
+      const showToast=(m,k)=>{const e=document.createElement('div');
+        e.className='jr-toast '+(k||'success');
+        e.innerHTML=`<i class="bi ${k==='error'?'bi-x-circle':'bi-check-circle'}"></i><span>${m}</span>`;
+        toastZone.appendChild(e);setTimeout(()=>{e.style.opacity='0';},2400);setTimeout(()=>e.remove(),2800);};
+      const isoToHM=i=>i?String(i).substring(11,16):'';
+      async function fetchJSON(u){const r=await fetch(u,{headers:{'X-Requested-With':'XMLHttpRequest'},cache:'no-store'});return r.json();}
+      async function loadTaskBasics(){
+        try{const j=await fetchJSON(`/admin/tarea/${tareaId}?format=json&_=${Date.now()}`);
+          const t=j.data||{};
+          $('#jrTaskName').textContent=t.nombre||('Tarea #'+tareaId);
+          $('#jrTaskLocation').textContent='Ubicación: '+(t.ubicacion||'-');
+          $('#jrTaskTZ').textContent=t.tz_name||'America/Bogota';
+          $('#jrTaskPriChip').dataset.v=t.prioridad||'comun';
+          if(t.fecha_inicio){jrFecha.min=t.fecha_inicio;if(!jrFecha.value)jrFecha.value=t.fecha_inicio;}
+          $('#jrTaskStart').textContent=t.fecha_inicio||'—';
+        }catch{}
+      }
+      let lastData=null;
+      function populateTurnoFilter(data){
+        const list=(data.tarea?.turnos)||[];
+        if(!list.length){jrTurnoWrap.hidden=true;return;}
+        jrTurnoWrap.hidden=false;
+        jrTurno.innerHTML='<option value="all">Todos</option>'+list.map(t=>`<option value="${t.numero}">Turno ${t.numero}${t.hora_inicio?' ('+t.hora_inicio+')':''}</option>`).join('');
+      }
+      function paintRows(data){
+        lastData=data;
+        const q=(jrSearch.value||'').toLowerCase().trim();
+        const turnoSel=jrTurno.value||'all';
+        const allEmps=(data.empleados||[]).flatMap(e=>{
+          if(e.turnos?.length){return e.turnos.map(j=>({
+            usuario_id:e.usuario_id,nombre:e.nombre,telefono:e.telefono,whatsapp:e.whatsapp,
+            turno:j.turno_num,ent:j.hora_inicio,sal:j.hora_salida
+          }));}
+          return[{usuario_id:e.usuario_id,nombre:e.nombre,telefono:e.telefono,whatsapp:e.whatsapp,turno:null}];
+        });
+        const rows=allEmps.filter(r=>{
+          const byText=!q||(r.nombre||'').toLowerCase().includes(q)||String(r.telefono||'').includes(q);
+          const byTurno=(turnoSel==='all')||(String(r.turno||'')===turnoSel);
+          return byText&&byTurno;
+        }).map(r=>`
+          <tr data-uid="${r.usuario_id}" data-turno="${r.turno||''}">
+            <td><i class="bi bi-person"></i> ${r.nombre}${r.turno?` <span class="badge text-bg-light">T${r.turno}</span>`:''}</td>
+            <td>${r.telefono||'-'}</td>
+            <td><input type="time" class="form-control form-control-sm jr-time" data-jr-ini value="${isoToHM(r.ent)}"></td>
+            <td><input type="time" class="form-control form-control-sm jr-time" data-jr-sal value="${isoToHM(r.sal)}"></td>
+            <td>${r.whatsapp?`<a href="${r.whatsapp}" target="_blank" class="btn btn-success btn-sm"><i class="bi bi-whatsapp"></i></a>`:''}</td>
+            <td class="text-end"><button class="btn btn-primary btn-sm" data-jr-save><i class="bi bi-save"></i></button></td>
+          </tr>`).join('');
+        jrAssignedCount.textContent=data.empleados?.length||0;
+        tbody.innerHTML=rows||`<tr><td colspan="6" class="text-muted">Sin empleados</td></tr>`;
+      }
+      async function loadSnapshot(f){
+        try{const j=await fetchJSON(`/admin/tarea/${tareaId}/jornada/modal-data?fecha=${encodeURIComponent(f)}&_=${Date.now()}`);
+          if(!j||j.ok===false) throw new Error(j.error||'Error');
+          populateTurnoFilter(j.data);paintRows(j.data);
+        }catch(e){tbody.innerHTML=`<tr><td colspan="6" class="text-danger">Error: ${e.message}</td></tr>`;}
+      }
+      async function saveRow(tr){
+        const uid=+tr.dataset.uid,turno_num=tr.dataset.turno?+tr.dataset.turno:null;
+        const ini=tr.querySelector('[data-jr-ini]').value,sal=tr.querySelector('[data-jr-sal]').value;
+        if(!ini&&!sal)return showToast('Define hora','error');
+        const body={tarea_id:tareaId,usuario_id:uid,fecha:jrFecha.value,fuente:'manual'};
+        if(ini)body.hora_inicio=ini;if(sal)body.hora_salida=sal;if(turno_num!=null)body.turno_num=turno_num;
+        const r=await fetch('/admin/jornada/registrar',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'},body:JSON.stringify(body)});
+        const j=await r.json().catch(()=>({}));if(!r.ok||j.ok===false)return showToast(j.error||'Error','error');
+        showToast(ini&&sal?'Entrada/salida guardadas':(ini?'Entrada guardada':'Salida guardada'));loadSnapshot(jrFecha.value);
+      }
+      async function applyAll(){
+        const allIn=jrAllIn.value,allOut=jrAllOut.value;if(!allIn&&!allOut)return showToast('Define hora','error');
+        const turnoSel=jrTurno.value||'all';
+        if(turnoSel!=='all'){
+          for(const tr of tbody.querySelectorAll(`tr[data-turno="${turnoSel}"]`)){
+            if(allIn)tr.querySelector('[data-jr-ini]').value=allIn;
+            if(allOut)tr.querySelector('[data-jr-sal]').value=allOut;
+            await saveRow(tr);
+          }
+          return;
+        }
+        const body={tarea_id:tareaId,fecha:jrFecha.value,fuente:'manual'};
+        if(allIn)body.hora_inicio=allIn;if(allOut)body.hora_salida=allOut;
+        const r=await fetch('/admin/jornada/registrar-todos',{method:'POST',headers:{'Content-Type':'application/json','X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'},body:JSON.stringify(body)});
+        const j=await r.json().catch(()=>({}));if(!r.ok||j.ok===false)return showToast(j.error||'Error','error');
+        showToast(`Aplicado a ${j.afectados||'todos'}`);loadSnapshot(jrFecha.value);
+      }
+      tbody.addEventListener('click',e=>{const b=e.target.closest('[data-jr-save]');if(b)saveRow(b.closest('tr'));});
+      jrApplyAll.addEventListener('click',applyAll);
+      jrReload.addEventListener('click',()=>loadSnapshot(jrFecha.value));
+      jrSearch.addEventListener('input',()=>{if(lastData)paintRows(lastData);});
+      jrTurno.addEventListener('change',()=>{if(lastData)paintRows(lastData);});
+      jrFecha.addEventListener('change',()=>loadSnapshot(jrFecha.value));
+      jrFecha.value=new Date().toISOString().slice(0,10);
+      loadTaskBasics();loadSnapshot(jrFecha.value);
+    };
+  })();
+  </script>
+</template>

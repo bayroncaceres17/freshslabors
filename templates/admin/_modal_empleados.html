@@ -1,0 +1,1288 @@
+<!-- ============================== ADMIN · MODAL EMPLEADOS (COMPLETO) ============================== -->
+<div id="empRoot-{{ t.id }}" 
+     class="empfx" data-tid="{{ t.id }}" 
+     data-task-id="{{ t.id }}" 
+     data-start="{{ (t.fecha_inicio or t.creado_en.date()).isoformat() }}"
+     data-end="{{ t.fecha_fin.isoformat() if t.fecha_fin else '' }}"
+     data-initialized="0">
+  {% set tiene_turnos = t.turnos|length > 0 %}
+
+  <!-- ============================== TABS ============================== -->
+  <div class="empfx-tabs mb-3">
+    <button class="empfx-tab empfx-active" data-tab="lista"><i class="bi bi-people me-1"></i> Lista</button>
+    <button class="empfx-tab" data-tab="info"><i class="bi bi-clock-history me-1"></i> Horas &amp; info</button>
+    <button class="empfx-tab" data-tab="agregar"><i class="bi bi-person-plus me-1"></i> Agregar</button>
+  </div>
+
+  <!-- ============================== PANELS ============================== -->
+  <div class="empfx-panels" data-tid="{{ t.id }}">
+    <!-- ============ TAB: LISTA ============ -->
+    <section class="empfx-panel" data-panel="lista">
+      <div class="empfx-table {% if not tiene_turnos %}no-shifts{% endif %}">
+        <div class="empfx-thead" role="row">
+          <div>Empleado</div>
+          <div class="col-wa">WhatsApp</div>
+          <div>Tarifa/h</div>
+          {% if tiene_turnos %}<div>Turno</div>{% endif %}
+          <div>Acciones</div>
+        </div>
+
+        <div class="empfx-tbody" id="empfxRows" role="rowgroup">
+          {% for a,u in asignaciones %}
+            {% set phone_digits = (u.telefono or '')|replace(' ','')|replace('-','')|replace('(','')|replace(')','') %}
+            {% set _conf = a.asistencia_confirmada or a.confirmado or a.checkin_confirmado or a.confirmo or a.confirma %}
+            <div class="empfx-tr"
+                 data-uid="{{ u.id }}"
+                 data-aid="{{ a.id }}"
+                 data-name="{{ u.nombre }}"
+                 data-phone="{{ u.telefono or '' }}"
+                 data-tarifa="{{ '%.2f' % (a.tarifa_hora or 0) }}"
+                 data-turno="{{ a.turno_num or '' }}"
+                 data-banned="{{ 1 if u.baneado else 0 }}">
+              <div class="empfx-td" data-th="Empleado">
+                <div class="empfx-name">{{ u.nombre }}</div>
+                {% if u.baneado %}
+                  <span class="empfx-badge empfx-bad">Baneado</span>
+                {% elif u.bloqueado %}
+                  <span class="empfx-badge empfx-warn">Bloqueado</span>
+                {% else %}
+                  {% if _conf %}
+                    <span class="empfx-badge empfx-ok">Asistencia confirmada</span>
+                  {% else %}
+                    <span class="empfx-badge empfx-warn">Sin confirmar</span>
+                  {% endif %}
+                {% endif %}
+                {% if a.doblar_turno %}
+                  <span class="empfx-badge empfx-double ms-1">Doble turno</span>
+                {% endif %}
+              </div>
+
+              <div class="empfx-td empfx-wa" data-th="WhatsApp">
+                {% if phone_digits %}
+                  <div class="d-flex align-items-center gap-2">
+                    <a class="empfx-wa-btn" title="Abrir WhatsApp" target="_blank" href="https://wa.me/{{ phone_digits|replace('+','') }}">
+                      <i class="bi bi-whatsapp"></i>
+                    </a>
+                    <div class="wa-meta">
+                      <div class="wa-action"><small class="fw-semibold">abrir</small></div>
+                      <div class="wa-phone text-muted d-none d-md-block">{{ u.telefono }}</div>
+                    </div>
+                  </div>
+                {% else %}
+                  <span class="text-muted">—</span>
+                {% endif %}
+              </div>
+
+              <div class="empfx-td text-nowrap" data-th="Tarifa/h">$ {{ '%.2f' % (a.tarifa_hora or 0) }}</div>
+
+              {% if tiene_turnos %}
+              <div class="empfx-td text-nowrap" data-th="Turno">{% if a.turno_num %}T{{ a.turno_num }}{% else %}—{% endif %}</div>
+              {% endif %}
+
+              <div class="empfx-td" data-th="Acciones">
+                <div class="btn-group btn-group-sm flex-wrap">
+                  <button type="button"
+                          class="btn btn-outline-secondary btn-sm"
+                          data-empfx-informes
+                          data-uid="{{ u.id }}"
+                          data-tid="{{ t.id }}">
+                    Informes
+                  </button>
+                  <button class="btn btn-outline-secondary" data-act="edit">Editar</button>
+                  <button class="btn btn-outline-danger" data-act="remove">Remover</button>
+
+                  <div class="dropdown">
+                    <button class="btn btn-primary dropdown-toggle" data-bs-toggle="dropdown">Más</button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                      <li class="dropdown-header">Sanciones</li>
+                      <li><button class="dropdown-item" data-act="san" data-tipo="amonestar">Amonestar</button></li>
+                      <li><button class="dropdown-item" data-act="san" data-tipo="bloquear">Bloquear</button></li>
+                      <li><hr class="dropdown-divider"></li>
+                      <li><button class="dropdown-item text-danger" data-act="san" data-tipo="banear">Banear</button></li>
+                      {% if u.baneado %}
+                        <li><hr class="dropdown-divider"></li>
+                        <li><button class="dropdown-item text-danger" data-act="unban">Desbanear</button></li>
+                      {% endif %}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            </div>
+          {% endfor %}
+          {% if asignaciones|length == 0 %}
+          <div class="p-3 text-center text-muted">Sin empleados asignados en esta tarea.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="mini mt-2">
+        Tip: “Informes” te muestra los reportes del empleado en esta tarea; “Editar” permite cambiar nombre, teléfono, tarifa y (si aplica) turno.
+      </div>
+    </section>
+
+    <!-- ============ TAB: HORAS & INFO ============ -->
+    <section class="empfx-panel" data-panel="info">
+      <div class="row g-2">
+        <div class="col-12 col-md-4">
+          <div class="empfx-list p-2">
+            {% for a,u in asignaciones %}
+              <button class="empfx-item" data-uid="{{ u.id }}" data-name="{{ u.nombre }}" data-tarifa="{{ a.tarifa_hora or 0 }}">
+                <div>{{ u.nombre }}</div>
+                <div class="text-muted">$ {{ '%.2f' % (a.tarifa_hora or 0) }}/h</div>
+              </button>
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="col-12 col-md-8">
+          <div id="empfxInfoHeader" class="text-muted">Elige un empleado…</div>
+          <div id="empfxInfoBox" class="d-none">
+            <!-- KPIs -->
+            <div class="d-flex flex-wrap gap-2 my-2">
+              <div class="empfx-kpi">
+                <div class="small text-muted">Total 7 días</div>
+                <div><b id="empfxH7">—</b> h · <b id="empfxP7">$—</b></div>
+              </div>
+              <div class="empfx-kpi">
+                <div class="small text-muted">Hoy</div>
+                <div><b id="empfxH1">—</b> h · <b id="empfxP1">$—</b></div>
+              </div>
+              <div class="empfx-kpi">
+                <div class="small text-muted">Total desde inicio</div>
+                <div><b id="empfxHT">—</b> h · <b id="empfxPT">$—</b></div>
+              </div>
+            </div>
+
+            <div class="row g-2">
+              <!-- Tabla de días trabajados -->
+              <div class="col-12 col-lg-7">
+                <table class="table table-sm align-middle mb-0">
+                  <thead class="table-light">
+                    <tr><th>Fecha</th><th>Horas</th><th>Ganado</th></tr>
+                  </thead>
+                  <tbody id="empfxDays"></tbody>
+                </table>
+              </div>
+
+              <!-- Sanciones + Historial -->
+              <div class="col-12 col-lg-5">
+                <div class="pill-card p-2 mb-2">
+                  <div class="chip mb-2">Sanciones en la tarea</div>
+                  <div id="empfxSanList" class="mini">—</div>
+                </div>
+
+                <div class="pill-card p-2">
+                  <div class="chip mb-2">Historial de acciones (30 días)</div>
+                  <div id="empfxHistList" class="mini">Selecciona un empleado para ver eventos…</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div> 
+    </section>
+
+    <!-- ============ TAB: AGREGAR ============ -->
+    <section class="empfx-panel" data-panel="agregar">
+      <form id="empfxAddForm" action="/admin/tarea/{{ t.id }}/asignar-ajax" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="usuario_id">
+
+        <div class="row g-2 align-items-center position-relative">
+          <div class="col-12 col-md-4">
+            <label class="form-label mini text-muted">Nombre*</label>
+            <input class="form-control" name="nombre" placeholder="Nombre*" required autocomplete="off">
+          </div>
+          <div class="col-12 col-md-4">
+            <label class="form-label mini text-muted">Teléfono (código país)*</label>
+            <input
+              class="form-control"
+              name="telefono"
+              placeholder="comienza con + y código de país, seguido solo de dígitos. Máx. 15 dígitos"
+              required
+              autocomplete="off"
+              pattern="^\+[1-9]\d{7,14}$"
+              title="Formato internacional (E.164): comienza con + y código de país, seguido solo de dígitos. Máx. 15 dígitos.">
+            <div class="invalid-feedback">Teléfono inválido. Usa +código de país y solo dígitos (E.164).</div>
+          </div>
+          <div class="col-6 col-md-2">
+            <label class="form-label mini text-muted">Tarifa/h (USD)*</label>
+            <input class="form-control" name="tarifa_hora" placeholder="Ej: 10.5" required>
+          </div>
+
+          {% if tiene_turnos %}
+            <div class="col-6 col-md-2">
+              <label class="form-label mini text-muted">Turno</label>
+              <select class="form-select" name="turno_num">
+                <option value="">Sin turno</option>
+                {% for turno in t.turnos %}
+                  <option value="{{ turno.numero }}">T{{ turno.numero }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          {% endif %}
+
+          {% if tiene_turnos %}
+          <div class="col-12">
+            <div class="form-check form-switch mt-1">
+              <input class="form-check-input" type="checkbox" id="empfxDoblarAdd-{{ t.id }}" name="doblar_turno" value="1">
+              <label class="form-check-label" for="empfxDoblarAdd-{{ t.id }}">Doblar turno</label>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+
+        <div class="text-end mt-2"><button class="btn btn-primary">Agregar</button></div>
+        <div class="form-text mt-1">
+          Mini-tutorial: En “Lista” edita datos y sanciona; en “Horas &amp; info” ves horas/pagos y sanciones; en “Agregar” suma un empleado nuevo o existente.
+        </div>
+      </form>
+    </section>
+  </div>
+
+  <!-- ============================== MINI-MODAL: EDITAR ASIGNACIÓN/USUARIO ============================== -->
+  <div class="modal fade" id="empfxEdit-{{ t.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-md modal-dialog-centered">
+      <div class="modal-content">
+        <form id="empfxEditForm">
+          <div class="modal-header">
+            <h5 class="modal-title">Editar empleado</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" name="uid">
+            <input type="hidden" name="aid">
+            <div class="mb-2"><label class="form-label mini mb-1">Nombre</label>
+              <input class="form-control" name="nombre" placeholder="Nombre*" required></div>
+            <div class="mb-2">
+              <label class="form-label mini mb-1">Teléfono / WhatsApp</label>
+              <input
+                class="form-control"
+                name="telefono"
+                placeholder="+15715551234"
+                required
+                pattern="^\+[1-9]\d{7,14}$"
+                title="Teléfono internacional (E.164). Debe comenzar con + y código de país.">
+              <div class="form-text mini">
+                Obligatorio con <b>+</b> y código de país (<code>+1</code>, <code>+57</code>, …). Máx. 15 dígitos.
+              </div>
+              <div class="invalid-feedback">Formato inválido. Debe comenzar con +código de país y solo dígitos.</div>
+            </div>
+            <div class="row g-2">
+              <div class="col-6">
+                <label class="form-label mini mb-1">Tarifa por hora (USD)</label>
+                <input class="form-control" name="tarifa_hora" required>
+              </div>
+              <div class="col-6">
+                <label class="form-label mini mb-1">Turno</label>
+                {% if tiene_turnos %}
+                  <select class="form-select" name="turno_num">
+                    <option value="">Sin turno</option>
+                    {% for turno in t.turnos %}
+                      <option value="{{ turno.numero }}">T{{ turno.numero }}</option>
+                    {% endfor %}
+                  </select>
+                {% else %}
+                  <input type="text" class="form-control" value="Sin turno" disabled>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-light" data-bs-dismiss="modal">← Atrás</button>
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button type="submit" form="empfxEditForm" class="btn btn-primary">Guardar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== MINI-MODAL: SANCIÓN ============================== -->
+  <div class="modal fade" id="empfxSan-{{ t.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-sm modal-dialog-centered">
+      <div class="modal-content">
+        <form id="empfxSanForm">
+          <div class="modal-header">
+            <h5 class="modal-title" id="empfxSanTitle">Sanción</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" name="uid">
+            <input type="hidden" name="tipo">
+            <input type="hidden" name="tarea_id">
+            <textarea class="form-control" name="motivo" placeholder="Motivo*" required></textarea>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+            <button class="btn btn-danger">Aplicar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================== SUBMODAL: INFORMES DEL EMPLEADO ============================== -->
+  <div class="modal fade" id="empfxInformes-{{ t.id }}" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+      <div class="modal-content empfx-inf">
+        <div class="modal-header">
+          <h5 class="modal-title">
+            Informes del empleado <small class="text-muted ms-2" id="empfxInfTitle-{{ t.id }}"></small>
+          </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+        </div>
+
+        <div class="modal-body">
+          <!-- Filtro de fecha -->
+          <div class="d-flex align-items-center gap-2 mb-3">
+            <input type="date" class="form-control form-control-sm" id="empfxInfDate-{{ t.id }}">
+            <button class="btn btn-sm btn-outline-secondary" id="empfxInfReload-{{ t.id }}">
+              <i class="bi bi-arrow-repeat"></i> Recargar
+            </button>
+          </div>
+
+          <div id="empfxInfError-{{ t.id }}" class="alert alert-danger d-none"></div>
+
+          <!-- Grid responsive -->
+          <div class="empfx-inf-grid">
+            <!-- Columna IZQ -->
+            <section class="empfx-inf-col">
+              <!-- Confirmación -->
+              <div class="pill-card p-3 mb-3">
+                <div class="chip mb-2">Confirmación (asistencia ligera)</div>
+                <div id="empfxInfConf-{{ t.id }}" class="mini text-muted">Sin datos…</div>
+              </div>
+
+              <!-- Primer reporte (asistencia) -->
+              <div class="pill-card p-3 mb-3">
+                <div class="chip mb-2">Primer reporte</div>
+                <div id="empfxInfAsis-{{ t.id }}" class="mini text-muted">Sin datos…</div>
+              </div>
+
+              <!-- Almuerzo -->
+              <div class="pill-card p-3 mb-3">
+                <div class="chip mb-2">Almuerzo</div>
+                <div id="empfxInfLunch-{{ t.id }}" class="mini text-muted">Sin datos…</div>
+              </div>
+            </section>
+
+            <!-- Columna DER -->
+            <section class="empfx-inf-col">
+              <!-- Ventanas obligatorias -->
+              <div class="pill-card p-3">
+                <div class="chip mb-2">Ventanas obligatorias del día</div>
+                <div id="empfxInfVent-{{ t.id }}" class="mini text-muted">Cargando…</div>
+              </div>
+            </section>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <span class="mini text-muted me-auto" id="empfxInfMeta-{{ t.id }}"></span>
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+
+        <!-- ===== Visor de foto (overlay dentro del submodal) ===== -->
+        <div class="empfx-photo-view d-none" id="empfxPhotoView-{{ t.id }}">
+          <div class="empfx-photo-backdrop"></div>
+          <div class="empfx-photo-box">
+            <button type="button" class="btn btn-light btn-sm empfx-photo-close" title="Cerrar (Esc)">×</button>
+            <img id="empfxPhotoImg-{{ t.id }}" alt="Foto de reporte">
+            <div class="empfx-photo-meta mini" id="empfxPhotoMeta-{{ t.id }}"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- ============================== /ADMIN · MODAL EMPLEADOS ============================== -->
+
+<!-- ============================== ESTILOS (MODAL + SUBMODAL) ============================== -->
+<style>
+/* ===== Base (claro/oscuro con Bootstrap 5.3) ===== */
+.empfx{
+  --bd: var(--bs-border-color);
+  --bg: var(--bs-body-bg);
+  --fg: var(--bs-body-color);
+  --muted: var(--bs-secondary-color);
+  --soft: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 45%);
+  --hover: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 22%);
+  --shadow: 0 8px 18px rgba(0,0,0,.06);
+}
+.empfx, .empfx *{ color:inherit; }
+.empfx .mini{ font-size:.9rem; color:var(--muted); }
+
+/* Tabs */
+.empfx .empfx-tabs{ display:flex; gap:.5rem; flex-wrap:wrap; }
+.empfx .empfx-tab{
+  border:1px solid var(--bd); border-radius:999px; background:var(--soft);
+  color:var(--fg); font-weight:700; padding:.55rem 1rem; cursor:pointer;
+  transition:background .15s, border-color .15s, color .15s;
+}
+.empfx .empfx-tab:hover{ background:var(--hover); }
+.empfx .empfx-tab.empfx-active{ background:var(--bs-primary); border-color:var(--bs-primary); color:#fff; }
+
+/* Tabla->grid (desktop/tablet) */
+.empfx .empfx-table{
+  border:1px solid var(--bd); border-radius:16px; background:var(--bg); overflow:visible; box-shadow:var(--shadow);
+}
+.empfx .empfx-thead,.empfx .empfx-tr{
+  display:grid; gap:.5rem; align-items:center;
+  grid-template-columns: 2fr 1.1fr .9fr .7fr 1.6fr;
+}
+.empfx .empfx-table.no-shifts .empfx-thead,
+.empfx .empfx-table.no-shifts .empfx-tr{
+  grid-template-columns: 2fr 1.25fr .9fr 1.6fr;
+}
+.empfx .empfx-thead{
+  background:var(--soft); color:var(--fg); font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; border-bottom:1px solid var(--bd);
+}
+.empfx .empfx-thead>div{ padding:.7rem .9rem; border-right:1px solid var(--bd); }
+.empfx .empfx-tbody .empfx-tr{ border-top:1px solid var(--bd); }
+.empfx .empfx-td{
+  padding:.75rem .9rem; border-right:1px solid var(--bd);
+  display:flex; align-items:center; gap:.55rem; min-width:0;
+}
+.empfx .empfx-td:last-child{ border-right:none; }
+.empfx .empfx-name{ font-weight:800; }
+
+/* Badges */
+.empfx .empfx-badge{
+  font-size:.75rem; font-weight:800; border-radius:999px; padding:.2rem .6rem; line-height:1.1;
+  border:1px solid color-mix(in oklab, var(--bd), transparent 10%);
+}
+.empfx .empfx-ok{   background:color-mix(in oklab, var(--bs-success), transparent 80%); color:color-mix(in oklab, var(--bs-success), #000 26%); }
+.empfx .empfx-warn{ background:color-mix(in oklab, var(--bs-warning), transparent 80%); color:color-mix(in oklab, var(--bs-warning), #000 26%); }
+.empfx .empfx-bad{  background:color-mix(in oklab, var(--bs-danger),  transparent 80%); color:color-mix(in oklab, var(--bs-danger),  #000 26%); }
+.empfx .empfx-double{background:color-mix(in oklab, var(--bs-info), transparent 78%); color:color-mix(in oklab, var(--bs-info), #000 32%); }
+
+/* Lista y KPIs (pestaña info) */
+.empfx .empfx-list{ border:1px solid var(--bd); border-radius:12px; max-height:60vh; overflow:auto; background:var(--bg); }
+.empfx .empfx-item{ width:100%; display:flex; align-items:center; justify-content:space-between; gap:.5rem; padding:.65rem .9rem; border:0; background:transparent; border-bottom:1px solid var(--bd); cursor:pointer; }
+.empfx .empfx-item:hover{ background:var(--soft); }
+.empfx .empfx-kpi{ border:1px solid var(--bd); border-radius:12px; padding:.6rem .8rem; background:var(--bg); min-width:180px; }
+
+/* WhatsApp */
+.empfx .empfx-thead > .col-wa,
+.empfx .empfx-tr > .empfx-wa{ min-width: 140px; justify-self: start; }
+.empfx .empfx-wa{ display:flex; align-items:center; gap:.6rem; }
+.empfx .empfx-wa .empfx-wa-btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  width:36px; height:36px; border-radius:10px;
+  border:1px solid color-mix(in oklab, var(--bd), transparent 12%);
+  background: color-mix(in oklab, var(--bs-success), var(--bg) 10%);
+  color: color-mix(in oklab, var(--bs-success), #000 18%);
+  font-size:1.05rem; text-decoration:none;
+}
+.empfx .empfx-wa .empfx-wa-btn:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.06);
+}
+.empfx .empfx-wa .wa-meta{ display:flex; flex-direction:column; line-height:1; }
+.empfx .empfx-wa .wa-action{ font-size:.9rem; font-weight:700; }
+.empfx .empfx-wa .wa-phone{ font-size:.85rem; color:var(--muted); }
+
+/* ===== MÓVIL (≤ 767.98px) ===== */
+@media (max-width: 767.98px){
+  .empfx .empfx-thead{ display:none; }
+  .empfx .empfx-tbody{ padding:.5rem; }
+  .empfx .empfx-tr{
+    display:block; border:1px solid var(--bd); border-radius:14px; background:var(--bg);
+    padding: .9rem .95rem; box-shadow: var(--shadow); margin-bottom:.75rem;
+  }
+  .empfx .empfx-td{
+    display:flex; align-items:center; gap:.5rem .75rem;
+    border-right:none !important; padding:.5rem 0; min-width:0; flex-wrap:wrap;
+  }
+  .empfx .empfx-td::before{
+    content: attr(data-th);
+    font-size:.82rem; color:var(--muted); flex: 1 1 140px; max-width: 50%;
+  }
+  .empfx .empfx-td[data-th="Empleado"]{ padding-top:0; margin-top:-.15rem; }
+  .empfx .empfx-td[data-th="Empleado"] .empfx-name{ font-weight:800; font-size:1.05rem; }
+  .empfx .empfx-td[data-th="Tarifa/h"], .empfx .empfx-td[data-th="Turno"]{ justify-content:space-between; }
+
+  .empfx .empfx-td[data-th="WhatsApp"]{ align-items:stretch; flex-direction:column; }
+  .empfx .empfx-td[data-th="WhatsApp"] .empfx-wa-btn{ width:100%; justify-content:center; padding:.65rem; border-radius:10px; }
+  .empfx .empfx-td[data-th="WhatsApp"] .wa-phone{ display:block; }
+}
+
+/* Acciones en móvil (grid) */
+@media (max-width: 767.98px){
+  .empfx .empfx-td[data-th="Acciones"]{
+    border-top:1px solid var(--bd); margin-top:.35rem; padding-top:.6rem; display:block;
+  }
+  .empfx .empfx-td[data-th="Acciones"] .btn-group.flex-wrap{
+    display:grid; gap:.6rem; width:100%;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "edit info" "more remove";
+  }
+  .empfx .empfx-td[data-th="Acciones"] [data-act="edit"]{ grid-area: edit; background: var(--bs-primary); border-color: var(--bs-primary); color:#fff; }
+  .empfx .empfx-td[data-th="Acciones"] [data-empfx-informes]{ grid-area: info; background: var(--bs-success); border-color: var(--bs-success); color:#fff; }
+  .empfx .empfx-td[data-th="Acciones"] .dropdown{ grid-area: more; }
+  .empfx .empfx-td[data-th="Acciones"] [data-act="remove"]{ grid-area: remove; background: var(--bs-danger); border-color: var(--bs-danger); color:#fff; }
+  .empfx .empfx-td[data-th="Acciones"] .btn-group.flex-wrap .btn,
+  .empfx .empfx-td[data-th="Acciones"] .dropdown > .btn{ width:100%; margin:0; padding:.7rem; }
+  .empfx .empfx-td[data-th="Acciones"] .dropdown-menu{ min-width: 88vw; }
+}
+@media (max-width: 380px){
+  .empfx .empfx-td[data-th="Acciones"] .btn-group.flex-wrap{
+    grid-template-columns: 1fr; grid-template-areas: "edit" "info" "more" "remove";
+  }
+}
+
+/* Focus accesible */
+.empfx .empfx-tab:focus,
+.empfx a:focus,
+.empfx button:focus{
+  outline:2px solid color-mix(in oklab, var(--bs-primary), transparent 35%);
+  outline-offset:2px;
+}
+
+/* ===== Submodal INFORMES ===== */
+.empfx-inf{
+  --bd: var(--bs-border-color);
+  --bg: var(--bs-body-bg);
+  --fg: var(--bs-body-color);
+  --soft: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 40%);
+  --hover: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 25%);
+}
+.empfx-inf .chip{
+  display:inline-flex; align-items:center; gap:.4rem;
+  padding:.2rem .6rem; border-radius:999px;
+  background:var(--soft); border:1px solid var(--bd); font-weight:700; font-size:.8rem;
+}
+.empfx-inf-grid{ display:grid; gap:16px; grid-template-columns: 1fr; }
+@media (min-width: 992px){ .empfx-inf-grid{ grid-template-columns: 1fr 1fr; } }
+.pill-card{ background: var(--bg); border:1px solid var(--bd); border-radius:14px; }
+.empfx-inf .badge-dot{ display:inline-flex; align-items:center; gap:.5rem; font-weight:700; }
+.empfx-inf .dot{ width:.55rem; height:.55rem; border-radius:50%; }
+.empfx-inf .dot.ok{ background: var(--bs-success); }
+.empfx-inf .dot.warn{ background: var(--bs-warning); }
+.empfx-inf .dot.bad{ background: var(--bs-danger); }
+.empfx-inf .dot.muted{ background: var(--bs-secondary); opacity:.6; }
+.empfx-inf .vent-item{ border:1px solid var(--bd); border-radius:12px; padding:.6rem .75rem; margin-bottom:.6rem; }
+.empfx-inf .vent-head{ display:flex; gap:.5rem; align-items:center; }
+.empfx-inf .vent-head .head-actions{ margin-left:auto; display:flex; gap:.5rem; align-items:center; }
+.empfx-inf .vent-times{ font-size:.85rem; color:var(--bs-secondary-color); }
+.empfx-inf .vent-actions{ display:flex; flex-wrap:wrap; gap:.5rem .6rem; align-items:center; }
+.empfx-inf .vent-head .head-actions .btn{ white-space:nowrap; }
+.empfx-inf .photo-chip{
+  border:1px dashed var(--bd); background:var(--soft); border-radius:999px; padding:.15rem .6rem;
+  font-weight:700; font-size:.8rem;
+}
+
+/* ===== Visor de fotos (overlay) ===== */
+.empfx-photo-view{
+  position: absolute; inset:0; display:flex; align-items:center; justify-content:center;
+}
+.empfx-photo-view.d-none{ display:none; }
+.empfx-photo-backdrop{
+  position:absolute; inset:0; background:rgba(0,0,0,.6);
+}
+.empfx-photo-box{
+  position:relative; z-index:2; background:var(--bg); border:1px solid var(--bd);
+  border-radius:14px; padding:.75rem; max-width:min(92vw, 980px); max-height:85vh;
+  box-shadow:0 10px 24px rgba(0,0,0,.2); display:flex; flex-direction:column; align-items:center; gap:.5rem;
+}
+.empfx-photo-box img{
+  max-width:100%; max-height:72vh; width:auto; height:auto; display:block; border-radius:8px;
+}
+.empfx-photo-close{
+  position:absolute; right:.5rem; top:.5rem; line-height:1; font-weight:800;
+  border-radius:999px; width:28px; height:28px; padding:0;
+}
+
+/* ===== Stacked modals (sanción sobre informes) ===== */
+.modal.stacked{ z-index: 1065; }
+.modal-backdrop.stacked{ z-index: 1060; }
+</style>
+
+<!-- ============================== SCRIPTS ============================== -->
+<script>
+(()=> {
+  const CSRF = '{{ csrf_token() }}';
+  const root = document.getElementById('empRoot-{{ t.id }}');
+  if (!root || root.dataset.initialized === '1') return;
+  root.dataset.initialized = '1';
+
+  const tieneTurnos = {{ 'true' if tiene_turnos else 'false' }};
+
+  const $  = (sel, ctx=root)=>ctx.querySelector(sel);
+  const $$ = (sel, ctx=root)=>Array.from(ctx.querySelectorAll(sel));
+  const money = n => '$'+(Number(n||0)).toFixed(2);
+
+  // Forzar rutas a /static/ cuando vengan como uploads/...
+  const toStatic = (p) => {
+    if (!p) return '';
+    let s = String(p).trim();
+    if (s.startsWith('http://') || s.startsWith('https://')) return s;
+    if (s.startsWith('/static/')) return s;
+    if (s.startsWith('static/')) return '/' + s;
+    if (s.startsWith('/uploads/')) return '/static' + s;
+    if (s.startsWith('uploads/'))  return '/static/' + s;
+    if (s.startsWith('/')) return s;
+    return '/static/' + s;
+  };
+
+  const startISO = root.dataset.start || '';
+  const endISO   = root.dataset.end || '';
+  const todayISO = () => new Date().toISOString().slice(0,10);
+
+  function initDateLimit(input){
+    const maxISO = endISO || todayISO();
+    if (startISO) input.setAttribute('min', startISO);
+    if (maxISO)   input.setAttribute('max', maxISO);
+    const v = input.value || todayISO();
+    input.value = (v < startISO) ? startISO : (v > maxISO ? maxISO : v);
+    input.addEventListener('change', ()=>{
+      if (startISO && input.value < startISO) input.value = startISO;
+      if (maxISO && input.value > maxISO)     input.value = maxISO;
+    });
+  }
+
+  function normalizePhone(v){ return (v||'').toString().replace(/[^\d+]/g,''); }
+  function isValidE164(v){ return /^\+[1-9]\d{7,14}$/.test(v||''); }
+
+  /* ---------- Tabs ---------- */
+  $$('.empfx-tab').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      $$('.empfx-tab').forEach(x=>x.classList.remove('empfx-active'));
+      btn.classList.add('empfx-active');
+      const tab = btn.dataset.tab;
+      $$('.empfx-panel').forEach(p=>p.style.display = (p.dataset.panel===tab?'block':'none'));
+    });
+  });
+  ($('.empfx-tab.empfx-active') || $('.empfx-tab[data-tab="lista"]'))?.click();
+
+  /* ---------- Ocultar Turno si no hay turnos ---------- */
+  if (!tieneTurnos) {
+    $$('.empfx-td[data-th="Turno"]').forEach(n => n.style.display = 'none');
+    $$('.empfx-thead > div').forEach(h => {
+      if ((h.textContent||'').trim().toLowerCase() === 'turno') h.style.display='none';
+    });
+  }
+
+  /* =======================================================================================
+     HELPERS DE HORA
+     ======================================================================================= */
+  const badgeDot = (text, cls) => `<span class="badge-dot"><span class="dot ${cls}"></span>${text}</span>`;
+
+  const hm12FromPack = (p) => {
+    if (!p) return '—';
+    if (p.ts_hhmm_12) return p.ts_hhmm_12;
+    if (p.ts == null) return '—';
+    const d = new Date(p.ts * 1000);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' });
+  };
+
+  const hm12FromVent = (v) => {
+    if (!v) return '—';
+    if (v.submitted_at_hhmm_12) return v.submitted_at_hhmm_12;
+    if (v.submitted_at == null) return '—';
+    const d = new Date(v.submitted_at * 1000);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' });
+  };
+
+  // Solo fallback para pintar rango desde epoch -> 12h local del navegador
+  const ts2hmLocal12 = (ts) => {
+    if (!ts) return '—';
+    const d = new Date(ts * 1000);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true });
+  };
+  const fmtRangeFromEpoch = (ini, fin, tolMin) => {
+    const base = `${ts2hmLocal12(ini)}–${ts2hmLocal12(fin)}`;
+    return tolMin ? `${base} (+${tolMin}m)` : base;
+  };
+
+  const ts12UTC = (ts) => {
+    if (!ts) return '—';
+    const d = new Date(ts * 1000);
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true, timeZone: 'UTC' });
+  };
+
+  const maps = (gps) => {
+    if (!gps || gps.lat==null || gps.lon==null) return '';
+    const href = `https://maps.google.com/?q=${gps.lat},${gps.lon}`;
+    return `<a target="_blank" rel="noopener" href="${href}" class="link-secondary">Mapa</a>`;
+  };
+  const photoChip = (path, label='(HAY FOTO)', meta='') => {
+    if (!path) return '';
+    const safe = toStatic(path);
+    return `<button type="button" class="btn btn-sm photo-chip" data-photo="${safe}" data-photometa="${meta || ''}">${label}</button>`;
+  };
+
+  /* =======================================================================================
+     Stacked modal helper (Amonestar sobre Informes)
+     ======================================================================================= */
+  function showStackedModal(modalEl){
+    if (modalEl.parentElement !== document.body) document.body.appendChild(modalEl);
+    const instance = bootstrap.Modal.getOrCreateInstance(modalEl);
+    const onShown = () => {
+      const backs = document.querySelectorAll('.modal-backdrop');
+      const topBd = backs[backs.length - 1];
+      if (topBd) topBd.classList.add('stacked');
+      modalEl.classList.add('stacked');
+    };
+    const onHidden = () => { modalEl.classList.remove('stacked'); };
+    modalEl.addEventListener('shown.bs.modal', onShown, { once:true });
+    modalEl.addEventListener('hidden.bs.modal', onHidden, { once:true });
+    instance.show();
+  }
+
+  /* =======================================================================================
+     SUBMODAL INFORMES (JSON desde el mismo endpoint con view=informes)
+     ======================================================================================= */
+  function openInformes(uid){
+    const modalEl = document.getElementById('empfxInformes-{{ t.id }}');
+    const modal   = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+    const title   = modalEl.querySelector('#empfxInfTitle-{{ t.id }}');
+    const dInput  = modalEl.querySelector('#empfxInfDate-{{ t.id }}');
+    const btnRel  = modalEl.querySelector('#empfxInfReload-{{ t.id }}');
+    const errBox  = modalEl.querySelector('#empfxInfError-{{ t.id }}');
+
+    const elConf  = modalEl.querySelector('#empfxInfConf-{{ t.id }}');
+    const elAsis  = modalEl.querySelector('#empfxInfAsis-{{ t.id }}');
+    const elLunch = modalEl.querySelector('#empfxInfLunch-{{ t.id }}');
+    const elVent  = modalEl.querySelector('#empfxInfVent-{{ t.id }}');
+    const elMeta  = modalEl.querySelector('#empfxInfMeta-{{ t.id }}');
+
+    // Visor de foto
+    const pvWrap = modalEl.querySelector('#empfxPhotoView-{{ t.id }}');
+    const pvImg  = modalEl.querySelector('#empfxPhotoImg-{{ t.id }}');
+    const pvMeta = modalEl.querySelector('#empfxPhotoMeta-{{ t.id }}');
+    const pvClose= modalEl.querySelector('.empfx-photo-close');
+
+    function showPhoto(src, metaText=''){
+      pvImg.src = toStatic(src);
+      pvMeta.textContent = metaText || '';
+      pvWrap.classList.remove('d-none');
+    }
+    function hidePhoto(){
+      pvWrap.classList.add('d-none');
+      pvImg.src = '';
+      pvMeta.textContent = '';
+    }
+    pvClose?.addEventListener('click', hidePhoto);
+    pvWrap?.addEventListener('click', (e)=>{ if(e.target === pvWrap || e.target.classList.contains('empfx-photo-backdrop')) hidePhoto(); });
+    modalEl.addEventListener('keydown', (e)=>{ if(e.key==='Escape') hidePhoto(); });
+
+    title.textContent = `UID ${uid} · TID {{ t.id }}`;
+    errBox.classList.add('d-none'); errBox.textContent = '';
+
+    // Limitar datepicker según la tarea
+    initDateLimit(dInput);
+
+    async function fetchAndRender(){
+      elConf.textContent = 'Cargando…';
+      elAsis.textContent = 'Cargando…';
+      elLunch.textContent = 'Cargando…';
+      elVent.textContent = 'Cargando…';
+      elMeta.textContent = '';
+
+      try{
+        const url = `/admin/tarea/{{ t.id }}/empleados/modal?view=informes&uid=${encodeURIComponent(uid)}&date=${encodeURIComponent(dInput.value)}&format=json&_=${Date.now()}`;
+        const r = await fetch(url, { headers: { 'X-Requested-With':'XMLHttpRequest' }, cache: 'no-store' });
+        const j = await r.json();
+
+        if (!r.ok || j.ok === false) throw new Error(j.error || 'No se pudieron cargar los informes.');
+
+        // Confirmación (asistencia_ligera)
+        if (j.asistencia_ligera){
+          const p = j.asistencia_ligera;
+          const hora = hm12FromPack(p);
+          const foto = photoChip(p.foto_path, '(HAY FOTO)', `Confirmación · ${hora}`);
+          const map = (p.gps && maps(p.gps)) || '';
+          elConf.innerHTML = `${badgeDot('Confirmado', 'ok')} <span class="ms-2">${hora}</span> <span class="ms-2">${map}</span> ${foto ? `<div class="mt-2">${foto}</div>` : ''}`;
+        } else {
+          elConf.innerHTML = `${badgeDot('No confirmado', 'bad')}`;
+        }
+
+        // Asistencia
+        if (j.asistencia){
+          const p = j.asistencia;
+          const hora = hm12FromPack(p);
+          const foto = photoChip(p.foto_path, '(HAY FOTO)', `Asistencia · ${hora}`);
+          const map = (p.gps && maps(p.gps)) || '';
+          elAsis.innerHTML = `
+            ${badgeDot('Enviado', 'ok')}
+            <span class="ms-2">${hora}</span>
+            <div class="mt-2 d-flex align-items-center gap-2 flex-wrap">
+              ${map}
+              ${foto || '<span class="mini text-muted">Sin foto</span>'}
+            </div>
+          `;
+        } else {
+          elAsis.innerHTML = `${badgeDot('No enviado', 'warn')}`;
+        }
+
+        // Lunch
+        if (j.lunch){
+          const p = j.lunch;
+          const hora = hm12FromPack(p);
+          const foto = photoChip(p.foto_path, '(HAY FOTO)', `Lunch · ${hora}`);
+          const map = (p.gps && maps(p.gps)) || '';
+          elLunch.innerHTML = `
+            ${badgeDot('Registrado', 'ok')}
+            <span class="ms-2">${hora}</span>
+            <div class="mt-2 d-flex align-items-center gap-2 flex-wrap">
+              ${map}
+              ${foto || '<span class="mini text-muted">Sin foto</span>'}
+            </div>
+          `;
+        } else {
+          elLunch.innerHTML = `${badgeDot('No enviado', 'muted')}`;
+        }
+
+        // Ventanas
+        if (Array.isArray(j.ventanas) && j.ventanas.length){
+          elVent.innerHTML = '';
+          j.ventanas.forEach(v => {
+            const estado = (v.estado || 'pending').toLowerCase();
+            const cls = estado === 'on_time' ? 'ok'
+                      : estado === 'late' ? 'warn'
+                      : estado === 'missed' ? 'bad' : 'muted';
+
+            const horaEnvio = hm12FromVent(v);
+
+            // === MOSTRAR SIEMPRE horas de la ventana desde la BD (12h) cuando existan ===
+            // v.hora_ini_12 / v.hora_fin_12 son enviados por el backend.
+            // Si no existen, caemos al rango calculado (ini_ts/fin_ts) como fallback visual.
+            let ventanaTxt = '—';
+            const tol = Number(v.tolerancia_min || 0);
+            const tolText = tol ? ` (+${tol}m)` : '';
+            if ((v.hora_ini_12 && v.hora_ini_12.trim()) || (v.hora_fin_12 && v.hora_fin_12.trim())) {
+              const ini12 = (v.hora_ini_12 && v.hora_ini_12.trim()) ? v.hora_ini_12 : '—';
+              const fin12 = (v.hora_fin_12 && v.hora_fin_12.trim()) ? v.hora_fin_12 : '—';
+              ventanaTxt = `${ini12}–${fin12}${tolText}`;
+            } else if (v.ini_ts && v.fin_ts) {
+              ventanaTxt = `${fmtRangeFromEpoch(v.ini_ts, v.fin_ts, tol)}`;
+            }
+
+            // GPS o Nota (si payload.gps existe)
+            let gpsOrNota = '';
+            if (v.payload && v.payload.gps) {
+              gpsOrNota = maps(v.payload.gps);
+            } else if (v.nota) {
+              gpsOrNota = `<span class="text-muted">Sin GPS · Nota: ${v.nota}</span>`;
+            } else {
+              gpsOrNota = `<span class="text-muted">Sin GPS</span>`;
+            }
+
+            const fotoBtn = v.foto_path
+              ? `<button type="button" class="btn btn-sm photo-chip" data-photo="${toStatic(v.foto_path)}" data-photometa="Ventana: ${v.nombre || v.report_ventana_id} · ${horaEnvio}">(HAY FOTO)</button>`
+              : '<span class="mini text-muted">Sin foto</span>';
+
+            const warnBtnHead = `<button type="button" class="btn btn-sm btn-outline-danger" data-san-warn data-uid="${j.usuario_id}" title="Amonestar">Amonestar</button>`;
+
+            const item = document.createElement('div');
+            item.className = 'vent-item';
+            item.innerHTML = `
+              <div class="vent-head">
+                <div class="fw-semibold">${v.nombre || ('Ventana #' + (v.report_ventana_id || ''))}</div>
+                <div class="head-actions">
+                  <div>${badgeDot(estado.replace('_',' ').toUpperCase(), cls)}</div>
+                  ${warnBtnHead}
+                </div>
+              </div>
+              <div class="vent-times mt-1">Ventana: ${ventanaTxt}</div>
+              <div class="mt-1">Enviado: <b>${horaEnvio}</b></div>
+              <div class="vent-actions mt-2">
+                ${gpsOrNota}
+                ${fotoBtn}
+              </div>
+            `;
+
+            elVent.appendChild(item);
+          });
+        } else {
+          elVent.innerHTML = '<span class="text-muted">No hay ventanas registradas para esta fecha.</span>';
+        }
+
+        elMeta.textContent = `TZ: ${j.tz || '—'} · fecha: ${j.fecha} · ahora(UTC): ${ts12UTC(j.now_ts)}`;
+
+        // Delegación: abrir visor de foto
+        elConf.addEventListener('click', e=>{
+          const b = e.target.closest('[data-photo]');
+          if (!b) return;
+          showPhoto(b.dataset.photo, b.dataset.photometa||'');
+        });
+        elAsis.addEventListener('click', e=>{
+          const b = e.target.closest('[data-photo]');
+          if (!b) return;
+          showPhoto(b.dataset.photo, b.dataset.photometa||'');
+        });
+        elLunch.addEventListener('click', e=>{
+          const b = e.target.closest('[data-photo]');
+          if (!b) return;
+          showPhoto(b.dataset.photo, b.dataset.photometa||'');
+        });
+        elVent.addEventListener('click', e=>{
+          const b = e.target.closest('[data-photo]');
+          if (!b) return;
+          showPhoto(b.dataset.photo, b.dataset.photometa||'');
+        });
+
+        // Delegación: botón Amonestar (warn) en cada ventana (STACKED)
+        elVent.addEventListener('click', (e) => {
+          const btn = e.target.closest('[data-san-warn]');
+          if (!btn) return;
+          const uidStr = String(btn.getAttribute('data-uid') || '').trim();
+          if (!uidStr) return;
+
+          const mm = document.getElementById('empfxSan-{{ t.id }}');
+          mm.querySelector('#empfxSanTitle').textContent = 'Amonestar';
+          mm.querySelector('[name=uid]').value = uidStr;
+          mm.querySelector('[name=tipo]').value = 'amonestar';
+          mm.querySelector('[name=tarea_id]').value = '{{ t.id }}';
+          mm.querySelector('[name=motivo]').value = 'Amonestación por ventana fuera de rango / sin GPS.';
+          showStackedModal(mm);
+        });
+
+      }catch(err){
+        errBox.textContent = err.message || 'Error inesperado.';
+        errBox.classList.remove('d-none');
+        elConf.textContent = '—'; elAsis.textContent = '—'; elLunch.textContent = '—'; elVent.textContent = '—';
+      }
+    }
+
+    btnRel.onclick = fetchAndRender;
+    if (!dInput.value) dInput.value = todayISO();
+    dInput.onchange = fetchAndRender;
+
+    modal.show();
+    fetchAndRender();
+  }
+
+  // Click en botón “Informes”
+  $('#empfxRows')?.addEventListener('click', (ev)=>{
+    const btn = ev.target.closest('[data-empfx-informes]');
+    if (!btn) return;
+    const uid = btn.getAttribute('data-uid');
+    if (!uid) return;
+    openInformes(uid);
+  });
+
+  /* ---------- Acciones LISTA (editar / remover / sanciones / unban) ---------- */
+  $('#empfxRows')?.addEventListener('click', async (ev)=>{
+    const btn = ev.target.closest('[data-act]'); if(!btn) return;
+    const row = ev.target.closest('.empfx-tr'); if(!row) return;
+    const uid = row.dataset.uid, aid = row.dataset.aid;
+
+    if (btn.dataset.act==='edit'){
+      const md = new bootstrap.Modal(document.getElementById('empfxEdit-{{ t.id }}'));
+      $('#empfxEditForm [name=uid]').value = uid;
+      $('#empfxEditForm [name=aid]').value = aid;
+      $('#empfxEditForm [name=nombre]').value = row.dataset.name || '';
+      $('#empfxEditForm [name=telefono]').value = normalizePhone(row.dataset.phone || '');
+      $('#empfxEditForm [name=tarifa_hora]').value = row.dataset.tarifa || '';
+      const turnoSel = $('#empfxEditForm [name=turno_num]'); if (turnoSel) turnoSel.value = row.dataset.turno || '';
+      md.show(); return;
+    }
+
+    if (btn.dataset.act==='remove'){
+      if(!confirm('¿Remover esta asignación?')) return;
+      try{
+        const r = await fetch(`/admin/asignacion/${aid}/remover`, { method:'POST', headers:{'X-Requested-With':'XMLHttpRequest','X-CSRFToken':CSRF} });
+        const j = await r.json(); if(!j.ok) return alert(j.error||'No se pudo remover');
+        row.remove();
+      }catch{ alert('Error de red'); }
+      return;
+    }
+
+    if (btn.dataset.act==='san'){
+      const tipo = btn.dataset.tipo;
+      const mm = document.getElementById('empfxSan-{{ t.id }}');
+      mm.querySelector('#empfxSanTitle').textContent = tipo[0].toUpperCase()+tipo.slice(1);
+      mm.querySelector('[name=uid]').value = uid;
+      mm.querySelector('[name=tipo]').value = tipo;
+      mm.querySelector('[name=motivo]').value = '';
+      mm.querySelector('[name=tarea_id]').value = String(root.dataset.tid || '');
+      showStackedModal(mm);
+      return;
+    }
+
+    if (btn.dataset.act==='unban'){
+      if(!confirm('¿Desbanear a este empleado?')) return;
+      try{
+        const r = await fetch(`/admin/empleado/${uid}/desbanear`, { method:'POST', headers:{'X-Requested-With':'XMLHttpRequest','X-CSRFToken':CSRF} });
+        if (r.ok) location.reload(); else alert('No se pudo desbanear');
+      }catch{ alert('Error de red'); }
+      return;
+    }
+  });
+
+  /* ---------- Guardar EDICIÓN (empleado + asignación) ---------- */
+  (function bindEdit(){
+    const form = $('#empfxEditForm'); if (!form) return;
+    if (form.dataset.empfxBound === '1') return;
+    form.dataset.empfxBound = '1';
+
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const uid = fd.get('uid');
+      const aid = fd.get('aid');
+      const nombre   = (fd.get('nombre')||'').toString();
+      const telefono = normalizePhone((fd.get('telefono')||'').toString());
+      const tarifa   = (fd.get('tarifa_hora')||'').toString().replace(',', '.');
+
+      if (!nombre.trim() || !telefono.trim()){ alert('Nombre y teléfono son obligatorios.'); return; }
+      if (!isValidE164(telefono)){ alert('Teléfono inválido. Usa formato internacional con +código de país (E.164).'); return; }
+      if (!tarifa || isNaN(parseFloat(tarifa))){ alert('Tarifa inválida.'); return; }
+
+      try{
+        const r1 = await fetch(`/admin/empleado/${uid}/editar`, {
+          method:'POST', headers:{'X-Requested-With':'XMLHttpRequest','X-CSRFToken':CSRF},
+          body: new URLSearchParams({ nombre, telefono })
+        });
+        const j1 = await r1.json().catch(()=>({})); if (!r1.ok || j1.ok===false) return alert(j1.error || 'No se pudo editar el empleado.');
+
+        const payload = { tarifa_hora: parseFloat(tarifa) };
+        const turnoSel = form.querySelector('[name="turno_num"]');
+        if (turnoSel) payload.turno_num = (turnoSel.value || null);
+
+        const r2 = await fetch(`/admin/asignacion/${aid}/editar`, {
+          method:'POST',
+          headers:{'X-Requested-With':'XMLHttpRequest','X-CSRFToken':CSRF,'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const j2 = await r2.json().catch(()=>({})); if (!r2.ok || j2.ok===false) return alert(j2.error || 'No se pudo guardar la asignación.');
+
+        location.reload();
+      }catch{ alert('Error de red'); }
+    });
+  })();
+
+  /* ---------- HORAS & INFO + HISTORIAL (JORNADAS) ---------- */
+  $('.empfx-list')?.addEventListener('click', async (ev) => {
+    const it = ev.target.closest('.empfx-item');
+    if (!it) return;
+
+    $$('.empfx-item').forEach(x => x.classList.remove('active'));
+    it.classList.add('active');
+
+    const uid = it.dataset.uid;
+    const name = it.dataset.name;
+    const tarifa = Number(it.dataset.tarifa || 0);
+
+    $('#empfxInfoHeader').innerHTML = `<b>${name}</b> — ${money(tarifa)}/h`;
+    $('#empfxInfoBox').classList.remove('d-none');
+
+    const fmtUS = iso => {
+      if (!iso) return '—';
+      const d = new Date(iso + 'T12:00:00');
+      return `${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}/${d.getFullYear()}`;
+    };
+
+    // DÍAS TRABAJADOS DESDE JORNADAS
+    try {
+      const r = await fetch(`/admin/tarea/${root.dataset.tid}/horas-por-fecha/${uid}?from_start=1`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      const j = await r.json();
+      if (!j.ok) throw 0;
+
+      const tb = $('#empfxDays');
+      tb.innerHTML = '';
+      let sum7 = 0, pay7 = 0, totalH = 0, totalP = 0, h1 = 0, p1 = 0;
+      const today = new Date().toISOString().slice(0, 10);
+
+      (j.rows || []).forEach(d => {
+        const fechaFmt = fmtUS(d.fecha);
+        const horas = Number(d.horas || 0);
+        const ganado = Number(d.ganado || 0);
+
+        totalH += horas;
+        totalP += ganado;
+
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${fechaFmt}</td><td>${horas.toFixed(2)}</td><td>${money(ganado)}</td>`;
+        tb.appendChild(tr);
+
+        const diff = (Date.now() - new Date(d.fecha + 'T00:00:00').getTime()) / (1000 * 3600 * 24);
+        if (diff <= 6.99) { sum7 += horas; pay7 += ganado; }
+        if (d.fecha === today) { h1 = horas; p1 = ganado; }
+      });
+
+      $('#empfxH7').textContent = sum7.toFixed(2);
+      $('#empfxP7').textContent = money(pay7);
+      $('#empfxH1').textContent = h1.toFixed(2);
+      $('#empfxP1').textContent = money(p1);
+      $('#empfxHT').textContent = totalH.toFixed(2);
+      $('#empfxPT').textContent = money(totalP);
+    } catch {
+      $('#empfxDays').innerHTML = '<tr><td colspan="3" class="text-danger">No se pudieron cargar las jornadas.</td></tr>';
+    }
+
+    // HISTORIAL
+    (async () => {
+      const box = $('#empfxHistList');
+      box.textContent = 'Cargando…';
+      try {
+        const url = `/admin/tarea/${root.dataset.tid}/historial?uid=${encodeURIComponent(uid)}&days=30&only=actions=1&format=json&_=${Date.now()}`;
+        const r = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' }, cache: 'no-store' });
+        const j = await r.json();
+        if (!j || !Array.isArray(j.rows) || j.rows.length === 0) {
+          box.textContent = 'Sin eventos en los últimos 30 días.';
+          return;
+        }
+        const groups = {};
+        j.rows.forEach(ev => {
+          const f = ev.fecha || ev.date || '';
+          if (!f) return;
+          (groups[f] ||= []).push(ev);
+        });
+        const dates = Object.keys(groups).sort((a, b) => a < b ? 1 : -1);
+        box.innerHTML = '';
+        dates.forEach(d => {
+          const title = document.createElement('div');
+          title.className = 'fw-semibold mb-1';
+          title.textContent = fmtUS(d);
+          const ul = document.createElement('ul');
+          ul.className = 'mb-2';
+          groups[d].forEach(ev => {
+            const tipo = (ev.tipo || ev.type || '').toUpperCase();
+            const detalle = ev.detalle || ev.detail || ev.descripcion || ev.desc || '';
+            const li = document.createElement('li');
+            li.innerHTML = `<span class="text-muted">${tipo}</span> — ${detalle}`;
+            ul.appendChild(li);
+          });
+          box.appendChild(title);
+          box.appendChild(ul);
+        });
+      } catch {
+        box.textContent = 'No se pudo cargar el historial.';
+      }
+    })();
+
+    // SANCIONES
+    try {
+      const r2 = await fetch(`/admin/empleado/${uid}/sanciones?tid=${root.dataset.tid}`, {
+        headers: { 'X-Requested-With': 'XMLHttpRequest' }
+      });
+      const j2 = await r2.json().catch(() => ({}));
+      const box = $('#empfxSanList');
+      if (j2 && Array.isArray(j2.rows) && j2.rows.length) {
+        box.innerHTML = '';
+        j2.rows.forEach(s => {
+          const fechaFmt = fmtUS(s.fecha);
+          const div = document.createElement('div');
+          div.classList.add('mb-2');
+          div.innerHTML = `<b>${(s.tipo || '').toUpperCase()}</b> — <span class="text-muted">${fechaFmt}</span><br>${s.motivo || s.mensaje || ''}`;
+          box.appendChild(div);
+        });
+      } else {
+        box.textContent = 'Sin sanciones registradas en esta tarea.';
+      }
+    } catch {
+      $('#empfxSanList').textContent = 'No se pudieron cargar sanciones.';
+    }
+  });
+
+  /* ---------- AGREGAR (sin turno en tareas sin turnos) + anti-doble-submit ---------- */
+  (function initAgregar(){
+    const form = $('#empfxAddForm'); if (!form) return;
+    if (form.dataset.empfxBound === '1') return;
+    form.dataset.empfxBound = '1';
+    form.dataset.empfxBusy = '0';
+
+    const hidUsuario = form.querySelector('input[name="usuario_id"]');
+    form.querySelector('input[name="nombre"]')?.addEventListener('input', ()=>{ if (hidUsuario) hidUsuario.value=''; });
+    form.querySelector('input[name="telefono"]')?.addEventListener('input', ()=>{ if (hidUsuario) hidUsuario.value=''; });
+
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      if (e.stopPropagation) e.stopPropagation();
+      if (e.stopImmediatePropagation) e.stopImmediatePropagation();
+
+      if (form.dataset.empfxBusy === '1') return;
+      form.dataset.empfxBusy = '1';
+
+      const fd = new FormData(form);
+
+      if (!tieneTurnos) {
+        fd.delete('turno_num');
+        fd.delete('doblar_turno');
+      } else {
+        const sel = form.querySelector('select[name="turno_num"]');
+        if (sel && !sel.value) fd.set('turno_num','');
+      }
+
+      const telNorm = normalizePhone(fd.get('telefono'));
+      if (!isValidE164(telNorm)){
+        alert('Teléfono inválido. Debe empezar con + y código de país (E.164).');
+        form.dataset.empfxBusy = '0'; return;
+      }
+      fd.set('telefono', telNorm);
+
+      const tarifaRaw = (fd.get('tarifa_hora')||'').toString().replace(',', '.');
+      if (!tarifaRaw || isNaN(parseFloat(tarifaRaw)) || parseFloat(tarifaRaw) <= 0){
+        alert('Tarifa inválida (> 0).'); form.dataset.empfxBusy = '0'; return;
+      }
+
+      try{
+        const r = await fetch(form.action, {
+          method:'POST',
+          headers:{'X-Requested-With':'XMLHttpRequest','X-CSRFToken':CSRF},
+          body: fd
+        });
+        let j={}; try{ j = await r.json(); }catch(_){ j = {}; }
+
+        if (r.status === 409){ alert(j.error || 'Este empleado ya está asignado a esta tarea.'); form.dataset.empfxBusy = '0'; return; }
+        if (!r.ok || j.ok === false){ alert(j.error || 'No se pudo asignar el empleado.'); form.dataset.empfxBusy = '0'; return; }
+        if (j.idempotent){ alert(j.msg || 'Este empleado ya estaba asignado a esta tarea.'); form.dataset.empfxBusy = '0'; return; }
+
+        form.reset(); if (hidUsuario) hidUsuario.value = '';
+        const turnoSel = form.querySelector('select[name="turno_num"]'); turnoSel && (turnoSel.value = '');
+        location.reload();
+      }catch{
+        alert('Error de red asignando el empleado.');
+        form.dataset.empfxBusy = '0';
+      }
+    }, { capture:true });
+  })();
+
+  /* ---------- SANCIÓN (Amonestar / Bloquear / Banear) ---------- */
+  (function bindSanction(){
+    const form = $('#empfxSanForm'); 
+    if (!form) return;
+    if (form.dataset.empfxBound === '1') return;
+    form.dataset.empfxBound = '1';
+
+    form.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const fd = new FormData(form);
+      const uid = fd.get('uid');
+      const tipo = (fd.get('tipo') || '').trim().toLowerCase();
+      const motivo = (fd.get('motivo') || '').trim();
+      const tarea_id = fd.get('tarea_id');
+
+      if (!motivo){ alert('Debes indicar un motivo.'); return; }
+
+      try{
+        const r = await fetch(`/admin/empleado/${uid}/sancion`, {
+          method: 'POST',
+          headers: { 'X-Requested-With': 'XMLHttpRequest', 'X-CSRFToken': CSRF },
+          body: fd
+        });
+
+        const j = await r.json().catch(()=>({}));
+        if (r.ok && j.ok){
+          alert(j.toast || 'Sanción aplicada correctamente.');
+          bootstrap.Modal.getInstance(form.closest('.modal'))?.hide();
+          location.reload();
+        } else {
+          alert(j.error || 'No se pudo aplicar la sanción.');
+        }
+      }catch(err){
+        console.error('❌ Error sancionando:', err);
+        alert('Error de red al aplicar sanción.');
+      }
+    });
+  })();
+
+})();
+</script>

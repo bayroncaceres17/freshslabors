@@ -1,0 +1,129 @@
+{% extends "supervisor/base.html" %}
+{% block title %}Tareas · Supervisor{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h5 class="mb-0">Tareas {{ 'activas' if estado=='activa' else 'inactivas' }}</h5>
+  <div class="d-flex gap-2">
+    {% if estado == 'activa' %}
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('supervisor_tareas', estado='inactiva') }}">
+        <i class="bi bi-archive"></i> Ver inactivas
+      </a>
+    {% else %}
+      <a class="btn btn-sm btn-outline-secondary" href="{{ url_for('supervisor_tareas', estado='activa') }}">
+        <i class="bi bi-lightning-charge"></i> Ver activas
+      </a>
+    {% endif %}
+  </div>
+</div>
+
+<div class="sv-card">
+  <div class="p-3 border-bottom" style="border-color:var(--sv-border)!important">
+    <div class="input-group">
+      <span class="input-group-text"><i class="bi bi-search"></i></span>
+      <input id="q" type="text" class="form-control" placeholder="Filtrar tareas...">
+    </div>
+  </div>
+
+  <div class="accordion accordion-flush" id="svAcc">
+    {% for t in tareas %}
+    <div class="accordion-item" data-k="{{ (t.nombre ~ ' ' ~ (t.ubicacion or ''))|lower }}">
+      <h2 class="accordion-header">
+        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#t{{ t.id }}">
+          <div class="d-flex flex-column flex-grow-1">
+            <span class="fw-semibold">{{ t.nombre }}</span>
+            <span class="text-muted small">{{ t.ubicacion or '—' }}</span>
+          </div>
+
+          {# === Chip de hora de inicio === #}
+          {% set _h = (t.hora_inicio if t.hora_inicio is not none
+                  else (t.hora_entrada if t.hora_entrada is not none
+                  else (t.hora_ini if t.hora_ini is not none else None))) %}
+
+          {% if _h and _h.__class__.__name__ == 'time' %}
+            {% set h_txt = _h.strftime("%H:%M") %}
+          {% else %}
+            {% set h_txt = _h or '—' %}
+          {% endif %}
+
+          <span class="badge ms-3"
+                style="background:rgba(249,207,67,.15);
+                       border:1px solid rgba(249,207,67,.35);
+                       color:#b08900;">
+            <i class="bi bi-clock-history me-1"></i> Inicio: {{ h_txt }}
+          </span>
+
+          {# (Opcional) Zona horaria si existe #}
+          {% if t.tz_name %}
+          <span class="badge ms-2"
+                style="background:rgba(90,178,255,.12);
+                       border:1px solid rgba(90,178,255,.35);
+                       color:#2a6aa3;">
+            <i class="bi bi-globe me-1"></i> {{ t.tz_name }}
+          </span>
+          {% endif %}
+        </button>
+      </h2>
+
+      <div id="t{{ t.id }}" class="accordion-collapse collapse" data-bs-parent="#svAcc">
+        <div class="accordion-body">
+          {% set lista = empleados_por_tarea.get(t.id, []) %}
+          {% if lista %}
+          <div class="table-responsive">
+            <table class="table table-sm align-middle mb-0">
+              <thead>
+                <tr class="text-muted">
+                  <th>Empleado</th>
+                  <th>Teléfono</th>
+                  <th class="text-end">Contacto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for e in lista %}
+                <tr>
+                  <td class="fw-semibold">{{ e.nombre }}</td>
+                  <td class="text-muted">{{ e.telefono or '—' }}</td>
+                  <td class="text-end">
+                    {% if e.telefono %}
+                    <a class="btn btn-sm btn-outline-success"
+                       href="https://wa.me/{{ e.telefono | replace(' ','') | replace('-','') | replace('+','') }}"
+                       target="_blank">
+                      <i class="bi bi-whatsapp"></i> WhatsApp
+                    </a>
+                    {% else %}
+                    <span class="text-muted small">Sin número</span>
+                    {% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% else %}
+            <p class="text-muted mb-0">Sin empleados activos asignados.</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    {% else %}
+      <div class="p-3"><p class="text-muted mb-0">No hay tareas para mostrar.</p></div>
+    {% endfor %}
+  </div>
+</div>
+
+{% block scripts %}
+<script>
+  (function(){
+    const q = document.getElementById('q');
+    const items = Array.from(document.querySelectorAll('#svAcc .accordion-item'));
+    q?.addEventListener('input', function(){
+      const term = (this.value || '').toLowerCase().trim();
+      items.forEach(el=>{
+        const k = el.getAttribute('data-k') || '';
+        el.style.display = k.includes(term) ? '' : 'none';
+      });
+    });
+  })();
+</script>
+{% endblock %}
+{% endblock %}

@@ -1,0 +1,185 @@
+<style>
+  .rep-modal{color:var(--bs-body-color);}
+  .rep-modal details{border:1px dashed var(--bs-border-color);border-radius:12px;padding:.7rem .9rem;background:var(--bs-tertiary-bg);}
+  .rep-modal summary{cursor:pointer;font-weight:700;list-style:none;display:flex;align-items:center;gap:.5rem}
+  .rep-modal summary::-webkit-details-marker{display:none;}
+  .rep-modal .pill-card{background:var(--bs-body-bg);border:1px solid var(--bs-border-color);border-radius:14px;box-shadow:0 6px 14px rgba(0,0,0,.06);}
+  .rep-modal .chip{display:inline-flex;align-items:center;gap:.4rem;padding:.25rem .6rem;border-radius:999px;font-weight:600;font-size:.8rem;border:1px solid var(--bs-border-color);background:var(--bs-tertiary-bg);}
+  .rep-modal .mini{font-size:.85rem;color:var(--bs-secondary-color);}
+  .rep-modal .badge-dot{display:inline-flex;align-items:center;gap:.35rem;font-size:.75rem;padding:.2rem .5rem;border-radius:999px;border:1px solid var(--bs-border-color);}
+  .rep-modal .dot-ok{width:.5rem;height:.5rem;border-radius:50%;background:var(--bs-success);}
+  .rep-modal .dot-warn{width:.5rem;height:.5rem;border-radius:50%;background:var(--bs-warning);}
+  .rep-modal .dot-bad{width:.5rem;height:.5rem;border-radius:50%;background:var(--bs-danger);}
+  .rep-modal .photo-thumb{display:inline-flex;align-items:center;gap:.4rem}
+  .rep-modal .photo-thumb img{max-height:52px;border-radius:8px;border:1px solid var(--bs-border-color);transition:.2s;}
+  .rep-modal .photo-thumb img:hover{transform:scale(1.03);}
+  .rep-modal .table td,.rep-modal .table th{vertical-align:middle;border-color:var(--bs-border-color);}
+  .rep-modal .section-title{font-weight:800;letter-spacing:.2px}
+  @media(max-width:768px){
+    .rep-modal .table thead{display:none;}
+    .rep-modal .table td{display:block;width:100%;}
+    .rep-modal .table tr{border-bottom:1px solid var(--bs-border-color);}
+    .rep-modal .table td::before{content:attr(data-label);display:block;font-weight:600;color:var(--bs-secondary-color);}
+  }
+</style>
+
+<div class="rep-modal">
+  <!-- encabezado -->
+  <div class="d-flex align-items-center justify-content-between mb-2 flex-wrap gap-2">
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+      <span class="chip"><i class="bi bi-person"></i> {{ u.nombre }}</span>
+      <span class="text-muted">· {{ t.nombre }}</span>
+      <span class="mini">Tolerancia: ±{{ tolerance }} min</span>
+      <span class="mini" id="repSanCount" hidden>· Amonestaciones: <b id="repSanCountNum">0</b></span>
+    </div>
+    <button id="repBtnAmonestar" class="btn btn-sm btn-outline-danger">
+      <i class="bi bi-exclamation-octagon"></i> Amonestar
+    </button>
+  </div>
+
+  <!-- guía plegable -->
+  <details class="mb-3" open>
+    <summary><i class="bi bi-info-circle"></i> Guía rápida</summary>
+    <ul class="mini mt-2 mb-0">
+      <li><i class="bi bi-clock"></i> Se usa la tolerancia configurada en la tarea.</li>
+      <li><i class="bi bi-check-circle text-success"></i> OK: dentro del rango de la ventana.</li>
+      <li><i class="bi bi-hourglass-split text-warning"></i> Pendiente: la ventana aún no vence.</li>
+      <li><i class="bi bi-exclamation-triangle text-danger"></i> Retraso/Falló: ventana vencida.</li>
+      <li><i class="bi bi-geo-alt"></i> Algunas ventanas y la <b>Asistencia</b> requieren foto con ubicación.</li>
+    </ul>
+  </details>
+
+  <!-- tabla -->
+  <div class="pill-card p-0">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th>Reporte</th>
+            <th>Horario</th>
+            <th>GPS</th>
+            <th>Foto</th>
+            <th class="text-center">Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in rows %}
+            {% set r = row.reporte %}
+            <tr>
+              <td data-label="Reporte">
+                {% if row.kind == 'special' %}
+                  <span class="section-title">{{ row.label }}</span>
+                {% else %}
+                  {{ row.label }}
+                {% endif %}
+                {% if r %}
+                  <div class="mini text-muted">Enviado: {{ r.timestamp.strftime('%Y-%m-%d %H:%M') }}</div>
+                {% endif %}
+              </td>
+              <td data-label="Horario">{{ row.horario }}</td>
+              <td data-label="GPS" class="text-muted">{% if r and r.gps %}{{ r.gps }}{% else %}—{% endif %}</td>
+              <td data-label="Foto">
+                {% if r and r.foto_path and row.espera_foto %}
+                  <a class="photo-thumb" href="#" data-foto="/{{ r.foto_path }}">
+                    <img src="/{{ r.foto_path }}" alt="foto">
+                    <span class="mini">Ver</span>
+                  </a>
+                {% elif row.kind == 'special' and row.label.startswith('Confirmación') %}
+                  <span class="mini text-muted">No requiere</span>
+                {% else %}
+                  — 
+                {% endif %}
+              </td>
+              <td data-label="Estado" class="text-center">
+                {% if row.estado == 'ok' %}
+                  <span class="badge-dot"><span class="dot-ok"></span> OK</span>
+                {% elif row.estado == 'retraso' %}
+                  <span class="badge-dot"><span class="dot-warn"></span>
+                    Retraso{% if row.delta_min is not none %} de {{ row.delta_min|abs }} {{ 'min' if (row.delta_min|abs) < 60 else 'hora(s)' }}{% endif %}
+                  </span>
+                {% elif row.estado == 'fallo' %}
+                  <span class="badge-dot"><span class="dot-bad"></span> Falló</span>
+                {% else %}
+                  <span class="badge-dot"><span class="dot-warn"></span> Pendiente</span>
+                {% endif %}
+              </td>
+            </tr>
+          {% else %}
+            <tr><td colspan="5" class="text-center text-muted p-3">Sin ventanas configuradas.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- modal para foto -->
+<div class="modal fade" id="repFotoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content bg-transparent border-0 shadow-none">
+      <img id="repFotoImg" src="" class="img-fluid rounded-3" alt="Foto del reporte">
+    </div>
+  </div>
+</div>
+
+<script>
+(()=>{
+  const ctx = document.currentScript.closest('.rep-modal') || document;
+  // ver foto
+  ctx.addEventListener('click', (e)=>{
+    const a = e.target.closest('.photo-thumb'); if(!a) return;
+    e.preventDefault();
+    const img = document.getElementById('repFotoImg');
+    img.src = a.getAttribute('data-foto');
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('repFotoModal')).show();
+  });
+
+  // cargar conteo amonestaciones
+  (async ()=>{
+    try{
+      const r = await fetch(`/admin/empleado/{{u.id}}/sanciones?tid={{t.id}}`, {headers:{'X-Requested-With':'XMLHttpRequest'}});
+      const j = await r.json();
+      if (j && Array.isArray(j.rows)) {
+        const n = j.rows.length;
+        const wrap = document.getElementById('repSanCount');
+        const num = document.getElementById('repSanCountNum');
+        if (num) num.textContent = n;
+        if (wrap) wrap.hidden = false;
+      }
+    }catch(_){}
+  })();
+
+  // amonestar
+  document.getElementById('repBtnAmonestar')?.addEventListener('click', async ()=>{
+    const motivo = prompt('Motivo de la amonestación:'); if(!motivo) return;
+    const fd = new FormData();
+    fd.set('tipo','amonestar');
+    fd.set('motivo',motivo.trim());
+    fd.set('tarea_id','{{t.id}}');
+    try{
+      const r = await fetch(`/admin/empleado/{{u.id}}/sancion`, {
+        method:'POST',
+        body: fd,
+        headers:{'X-Requested-With':'XMLHttpRequest'}
+      });
+      const j = await r.json().catch(()=>({}));
+      if (j && j.ok !== false){
+        alert('Amonestación registrada.');
+        // refrescar contador
+        try{
+          const r2 = await fetch(`/admin/empleado/{{u.id}}/sanciones?tid={{t.id}}`, {headers:{'X-Requested-With':'XMLHttpRequest'}});
+          const j2 = await r2.json();
+          if (j2 && Array.isArray(j2.rows)) {
+            document.getElementById('repSanCountNum').textContent = j2.rows.length;
+            document.getElementById('repSanCount').hidden = false;
+          }
+        }catch(_){}
+      } else {
+        alert(j.error || 'No se pudo registrar la amonestación.');
+      }
+    }catch(_){
+      alert('Error de red.');
+    }
+  });
+})();
+</script>

@@ -1,0 +1,60 @@
+{% extends "supervisor/base.html" %}
+{% block title %}Empleados · Supervisor{% endblock %}
+{% block content %}
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h5 class="mb-0">Empleados activos</h5>
+</div>
+
+<div class="sv-card">
+  <div class="p-3 border-bottom" style="border-color:var(--sv-border)!important">
+    <div class="input-group">
+      <span class="input-group-text"><i class="bi bi-search"></i></span>
+      <input id="q" type="text" class="form-control" placeholder="Buscar por nombre o teléfono">
+    </div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table align-middle mb-0" id="tblEmp">
+      <thead class="table-light">
+        <tr><th>Nombre</th><th>Teléfono</th><th class="text-end">Contacto</th></tr>
+      </thead>
+      <tbody>
+        {% for e in empleados %}
+        <tr data-k="{{ (e.nombre ~ ' ' ~ (e.telefono or ''))|lower }}">
+          <td class="fw-semibold">{{ e.nombre }}</td>
+          <td class="text-muted">{{ e.telefono or '—' }}</td>
+          <td class="text-end">
+            {% if e.telefono %}
+            <a class="btn btn-sm btn-outline-success"
+               href="https://wa.me/{{ e.telefono | replace(' ','') | replace('-','') | replace('+','') }}"
+               target="_blank"><i class="bi bi-whatsapp"></i> WhatsApp</a>
+            {% else %}
+            <span class="text-muted small">Sin número</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="3" class="text-muted text-center">No hay empleados activos.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% block scripts %}
+<script>
+  (function(){
+    const q = document.getElementById('q');
+    const rows = Array.from(document.querySelectorAll('#tblEmp tbody tr'));
+    q?.addEventListener('input', function(){
+      const term = (this.value || '').toLowerCase().trim();
+      rows.forEach(tr=>{
+        const k = tr.getAttribute('data-k') || '';
+        tr.style.display = k.includes(term) ? '' : 'none';
+      });
+    });
+  })();
+</script>
+{% endblock %}
+{% endblock %}

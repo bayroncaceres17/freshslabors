@@ -1,0 +1,297 @@
+{% extends "admin/base.html" %}
+{% block title %}Historial Global de Tareas{% endblock %}
+
+{% block styles %}
+<style>
+  /* ============ Tokens base, hereda de Bootstrap ============ */
+  :root{
+    --ui-surface: var(--bs-body-bg);
+    --ui-text: var(--bs-body-color);
+    --ui-muted: var(--bs-secondary-color);
+    --ui-border: var(--bs-border-color);
+    --ui-card-shadow: 0 10px 24px rgba(0,0,0,.06);
+    --ui-soft: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 45%);
+    --ui-hover: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 25%);
+  }
+  /* Soporte explícito para tema oscuro si lo fuerzas en root (opcional) */
+  [data-theme="dark"]{
+    --ui-card-shadow: 0 8px 18px rgba(0,0,0,.35);
+    --ui-soft: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 30%);
+    --ui-hover: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 10%);
+  }
+  /* Respeta prefers-color-scheme */
+  @media (prefers-color-scheme: dark){
+    :root{
+      --ui-card-shadow: 0 8px 18px rgba(0,0,0,.35);
+      --ui-soft: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 30%);
+      --ui-hover: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 10%);
+    }
+  }
+
+  .pill-card{
+    background: var(--ui-surface);
+    border: 1px solid var(--ui-border);
+    border-radius: 16px;
+    box-shadow: var(--ui-card-shadow);
+  }
+  .mini{ font-size:.9rem; color: var(--ui-muted); }
+
+  /* Toolbar */
+  .toolbar .btn{ border-radius: 999px; }
+  .toolbar .input-group .input-group-text{ border-radius: 999px 0 0 999px; }
+  .toolbar .form-control{ border-radius: 0 999px 999px 0; }
+
+  /* Tabla */
+  .table thead.table-light{
+    background: var(--ui-soft);
+    color: var(--ui-text);
+    border-bottom: 1px solid var(--ui-border);
+  }
+  .table td, .table th{ vertical-align: middle; border-color: var(--ui-border); }
+  .table tbody tr{ transition: background .15s ease; }
+  .table tbody tr:hover{ background: var(--ui-hover); }
+
+  .empty-hint{ color: var(--ui-muted); padding: 1rem; text-align: center; }
+
+  /* Badges de rol */
+  .badge-role{
+    border-radius: 999px;
+    padding: .25rem .6rem;
+    font-weight: 600;
+    font-size: .72rem;
+    display:inline-flex; align-items:center; gap:.35rem;
+    border:1px solid var(--ui-border);
+    background: var(--ui-soft);
+    color: var(--ui-text);
+    white-space: nowrap;
+  }
+  .badge-role svg{ width: 12px; height: 12px; }
+
+  .badge-admin{
+    background: color-mix(in oklab, var(--bs-primary), transparent 88%);
+    border-color: color-mix(in oklab, var(--bs-primary), transparent 70%);
+  }
+  .badge-superadmin{
+    background: linear-gradient(90deg,#fbbf24,#f59e0b);
+    border-color: transparent;
+    color: #fff;
+  }
+  .badge-supervisor{
+    background: color-mix(in oklab, var(--bs-success), transparent 85%);
+    border-color: color-mix(in oklab, var(--bs-success), transparent 65%);
+  }
+  .badge-empleado{
+    background: color-mix(in oklab, var(--bs-warning), transparent 85%);
+    border-color: color-mix(in oklab, var(--bs-warning), transparent 65%);
+  }
+
+  /* ====== Cards móviles ====== */
+  .ev-card{
+    border:1px solid var(--ui-border);
+    border-radius: 14px;
+    background: var(--ui-surface);
+    padding: .9rem;
+    box-shadow: 0 6px 14px rgba(0,0,0,.05);
+  }
+  .ev-card + .ev-card{ margin-top:.75rem; }
+  .ev-head{
+    display:flex; justify-content:space-between; align-items: flex-start; gap:.75rem;
+  }
+  .ev-date{ font-weight:700; color: var(--ui-text); }
+  .ev-user{ display:flex; align-items:center; gap:.5rem; flex-wrap:wrap; }
+  .ev-change{ color: var(--ui-muted); margin-top:.35rem; font-size:.95rem; }
+  .ev-task{ font-weight:600; margin-top:.25rem; }
+
+  /* Layout: tabla >= md; cards < md */
+  #histTableWrap{ display:none; }
+  #histCardsWrap{ display:block; }
+  @media (min-width: 768px){
+    #histTableWrap{ display:block; }
+    #histCardsWrap{ display:none; }
+  }
+
+  /* Responsive toolbar */
+  @media (max-width: 575.98px){
+    .toolbar{ display:grid; grid-template-columns: 1fr; gap:.5rem; }
+    .toolbar .btn{ width:100%; justify-content:center; }
+    .toolbar .input-group{ width:100%; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+
+  <!-- Intro / ayuda -->
+  <div class="pill-card p-3 mb-3">
+    <div class="fw-bold" style="color:var(--ui-text)">¿Qué muestra este historial?</div>
+    <ul class="mini mb-0">
+      <li>Incluye <b>creación</b>, <b>edición</b>, <b>asignaciones</b>, <b>sanciones</b> y <b>cambio de estado</b> de tareas.</li>
+      <li>Columnas: <b>Fecha</b>, <b>Usuario</b>, <b>Cambio</b> y <b>Tarea</b>.</li>
+      <li>El buscador filtra por texto (usuario, rol, tarea o detalle del cambio).</li>
+    </ul>
+  </div>
+
+  <!-- Toolbar -->
+  <div class="pill-card p-3 mb-3 d-flex flex-wrap gap-2 align-items-center toolbar">
+    <a class="btn btn-outline-secondary" href="{{ url_for('admin_tareas') }}">
+      <i class="bi bi-arrow-left"></i> Volver a Tareas
+    </a>
+    <div class="ms-auto input-group" style="max-width:520px">
+      <span class="input-group-text"><i class="bi bi-search"></i></span>
+      <input id="filtroGlobal" class="form-control" placeholder="Usuario, rol, tarea o cambio…">
+    </div>
+  </div>
+
+  <!-- ====== Vista TABLE (≥ md) ====== -->
+  <div id="histTableWrap" class="pill-card p-0">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0" id="tablaHistGlobal">
+        <thead class="table-light">
+          <tr>
+            <th class="text-nowrap">Fecha</th>
+            <th>Usuario</th>
+            <th>Cambio</th>
+            <th>Tarea</th>
+          </tr>
+        </thead>
+        <tbody id="tbodyHistGlobal">
+          {% for ev in eventos %}
+            {% set texto = (ev.usuario ~ ' ' ~ (ev.rol or '') ~ ' ' ~ ev.cambio ~ ' ' ~ ev.tarea)|lower %}
+            <tr data-texto="{{ texto }}">
+              <td class="text-nowrap">{{ ev.fecha.strftime('%Y-%m-%d %H:%M') }}</td>
+              <td>
+                {{ ev.usuario }}
+                {% if ev.rol %}
+                  {% set r = ev.rol|lower %}
+                  {% if r == 'superadmin' %}
+                    <span class="badge-role badge-superadmin ms-1" title="Superadmin">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                      Superadmin
+                    </span>
+                  {% elif r == 'admin' %}
+                    <span class="badge-role badge-admin ms-1">Admin</span>
+                  {% elif r == 'supervisor' %}
+                    <span class="badge-role badge-supervisor ms-1">Supervisor</span>
+                  {% elif r == 'empleado' %}
+                    <span class="badge-role badge-empleado ms-1">Empleado</span>
+                  {% else %}
+                    <span class="badge-role ms-1">{{ ev.rol }}</span>
+                  {% endif %}
+                {% endif %}
+              </td>
+              <td class="small text-muted">{{ ev.cambio }}</td>
+              <td class="fw-semibold">{{ ev.tarea }}</td>
+            </tr>
+          {% else %}
+            <tr><td colspan="4" class="empty-hint">Sin eventos.</td></tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ====== Vista CARDS (< md) ====== -->
+  <div id="histCardsWrap">
+    {% for ev in eventos %}
+      {% set texto = (ev.usuario ~ ' ' ~ (ev.rol or '') ~ ' ' ~ ev.cambio ~ ' ' ~ ev.tarea)|lower %}
+      <div class="ev-card" data-texto="{{ texto }}">
+        <div class="ev-head">
+          <div>
+            <div class="ev-date">{{ ev.fecha.strftime('%Y-%m-%d %H:%M') }}</div>
+            <div class="ev-user">
+              <span class="fw-semibold">{{ ev.usuario }}</span>
+              {% if ev.rol %}
+                {% set r = ev.rol|lower %}
+                {% if r == 'superadmin' %}
+                  <span class="badge-role badge-superadmin" title="Superadmin">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"/></svg>
+                    Superadmin
+                  </span>
+                {% elif r == 'admin' %}
+                  <span class="badge-role badge-admin">Admin</span>
+                {% elif r == 'supervisor' %}
+                  <span class="badge-role badge-supervisor">Supervisor</span>
+                {% elif r == 'empleado' %}
+                  <span class="badge-role badge-empleado">Empleado</span>
+                {% else %}
+                  <span class="badge-role">{{ ev.rol }}</span>
+                {% endif %}
+              {% endif %}
+            </div>
+          </div>
+        </div>
+        <div class="ev-change">{{ ev.cambio }}</div>
+        <div class="ev-task">{{ ev.tarea }}</div>
+      </div>
+    {% else %}
+      <div class="pill-card p-3 text-center mini">Sin eventos.</div>
+    {% endfor %}
+  </div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  if (window._histGlobalBound) return; window._histGlobalBound = true;
+
+  const $ = (s,c=document)=>c.querySelector(s);
+  const filtro = $('#filtroGlobal');
+
+  // Colecciones vivas
+  const rowList = ()=> Array.from(document.querySelectorAll('#tbodyHistGlobal tr'));
+  const cardList = ()=> Array.from(document.querySelectorAll('#histCardsWrap .ev-card'));
+
+  function applyFilter(){
+    const q = (filtro.value||'').trim().toLowerCase();
+    let showRows=0, showCards=0;
+
+    rowList().forEach(tr=>{
+      const txt = tr.getAttribute('data-texto') || '';
+      const hit = !q || txt.includes(q);
+      tr.style.display = hit ? '' : 'none';
+      if (hit) showRows++;
+    });
+
+    cardList().forEach(card=>{
+      const txt = card.getAttribute('data-texto') || '';
+      const hit = !q || txt.includes(q);
+      card.style.display = hit ? '' : 'none';
+      if (hit) showCards++;
+    });
+
+    // Mensaje vacío en tabla
+    const tbody = document.getElementById('tbodyHistGlobal');
+    if (tbody){
+      const existing = document.getElementById('emptyRow');
+      if (!showRows){
+        if (!existing){
+          const tr = document.createElement('tr');
+          tr.id = 'emptyRow';
+          tr.innerHTML = '<td colspan="4" class="empty-hint">Sin coincidencias.</td>';
+          tbody.appendChild(tr);
+        }
+      } else {
+        existing?.remove();
+      }
+    }
+
+    // Mensaje vacío en cards (<md)
+    let emptyCards = document.getElementById('emptyCards');
+    if (!showCards){
+      if (!emptyCards){
+        emptyCards = document.createElement('div');
+        emptyCards.id = 'emptyCards';
+        emptyCards.className = 'pill-card p-3 text-center mini mt-2';
+        emptyCards.textContent = 'Sin coincidencias.';
+        document.getElementById('histCardsWrap')?.appendChild(emptyCards);
+      }
+    } else {
+      emptyCards?.remove();
+    }
+  }
+
+  filtro?.addEventListener('input', applyFilter);
+})();
+</script>
+{% endblock %}

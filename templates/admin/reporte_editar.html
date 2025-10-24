@@ -1,0 +1,70 @@
+{% extends "admin/base.html" %}
+{% block title %}Editar reporte #{{ r.id }}{% endblock %}
+{% block content %}
+
+<div class="container" style="max-width: 820px">
+  <h4 class="mb-3">Editar reporte <small class="text-muted">#{{ r.id }}</small></h4>
+
+  <div class="card shadow-sm">
+    <div class="card-body">
+      <form method="post" enctype="multipart/form-data" action="{{ url_for('admin_reporte_editar_post', rid=r.id) }}">
+        <div class="row g-3">
+
+          <!-- INFO FIJA -->
+          <div class="col-12">
+            <div class="small text-muted">
+              Tarea: <strong>#{{ r.tarea_id }}</strong> · Empleado: <strong>#{{ r.usuario_id }}</strong> ·
+              Ventana: <strong>{{ r.report_ventana_id or '-' }}</strong>
+            </div>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Tipo</label>
+            <select name="tipo" class="form-select">
+              {% set tipos = ['asistencia','lunch','salida','otro'] %}
+              {% for t in tipos %}
+                <option value="{{ t }}" {% if r.tipo==t %}selected{% endif %}>{{ t }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Tipo especial</label>
+            <input class="form-control" name="tipo_especial" value="{{ r.tipo_especial or '' }}" placeholder="confirmacion, sin_lunch, etc.">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">GPS</label>
+            <input class="form-control" name="gps" value="{{ r.gps or '' }}" placeholder="lat,lng">
+          </div>
+
+          <div class="col-md-6">
+            <label class="form-label">Fecha/Hora (UTC)</label>
+            <input class="form-control" name="timestamp" value="{{ r.timestamp.strftime('%Y-%m-%d %H:%M') if r.timestamp else '' }}" placeholder="YYYY-MM-DD HH:MM">
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Nota</label>
+            <textarea class="form-control" name="nota" rows="2" placeholder="Opcional">{{ r.nota or '' }}</textarea>
+          </div>
+
+          <div class="col-12">
+            <label class="form-label">Foto (reemplazar)</label>
+            <input type="file" name="foto" accept="image/*" class="form-control">
+            {% if r.foto_path %}
+              <div class="form-text">Actual: {{ r.foto_path }}</div>
+            {% endif %}
+          </div>
+
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
+          <button class="btn btn-danger" type="submit"><i class="bi bi-save"></i> Guardar cambios</button>
+          <a class="btn btn-outline-secondary" href="{{ request.referrer or url_for('admin_dashboard') }}">Cancelar</a>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

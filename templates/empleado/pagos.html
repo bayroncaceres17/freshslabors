@@ -1,0 +1,177 @@
+{% extends "empleado/base_empleado.html" %}
+{% block title %}Pagos{% endblock %}
+
+{% block emp_content %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+  <h5 class="mb-0">Mis pagos</h5>
+  <span class="badge badge-soft"><i class="bi bi-clock-history me-1"></i> Últimas 5 colillas</span>
+</div>
+
+{% if pagos and pagos|length %}
+  <div class="table-responsive">
+    <table class="table table-striped align-middle table-elegant">
+      <thead>
+        <tr>
+          <th>Semana</th>
+          <th>Monto</th>
+          <th>Estado</th>
+          <th class="text-end">Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in pagos %}
+          {% set sem_ini = p.semana_inicio.strftime("%Y-%m-%d") if p.semana_inicio else "—" %}
+          {% set sem_fin = p.semana_fin.strftime("%Y-%m-%d") if p.semana_fin else "—" %}
+          <tr>
+            <td>{{ sem_ini }} ⇒ {{ sem_fin }}</td>
+            <td>${{ "%.2f"|format(p.monto or p.subtotal or 0) }}</td>
+            <td>
+              {% if p.verificado_empleado %}
+                <span class="badge bg-success"><i class="bi bi-check2-circle me-1"></i>Confirmado</span>
+              {% else %}
+                <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Pendiente</span>
+              {% endif %}
+            </td>
+            <td class="text-end">
+              <button class="btn btn-ghost btn-sm" data-bs-toggle="modal" data-bs-target="#rec{{ p.id }}">
+                <i class="bi bi-receipt me-1"></i> Ver recibo
+              </button>
+            </td>
+          </tr>
+
+          <!-- MODAL RECIBO -->
+          <div class="modal fade" id="rec{{ p.id }}" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog modal-dialog-centered modal-lg">
+              <div class="modal-content rounded-4">
+                <div class="modal-header">
+                  <h6 class="modal-title">
+                    <i class="bi bi-receipt me-2"></i> Recibo – Semana {{ sem_ini }} a {{ sem_fin }}
+                  </h6>
+                  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+
+                <div class="modal-body">
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <div class="p-3 border rounded">
+                        <div class="small text-muted">Semana</div>
+                        <div class="fw-semibold">{{ sem_ini }} → {{ sem_fin }}</div>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="p-3 border rounded">
+                        <div class="small text-muted">Monto</div>
+                        <div class="fw-bold">
+                          ${{ "%.2f"|format(p.monto or p.subtotal or 0) }}
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-3">
+                      <div class="p-3 border rounded">
+                        <div class="small text-muted">Estado</div>
+                        {% if p.verificado_empleado %}
+                          <span class="badge bg-success"><i class="bi bi-check2-circle me-1"></i>Confirmado</span>
+                        {% else %}
+                          <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split me-1"></i>Pendiente</span>
+                        {% endif %}
+                      </div>
+                    </div>
+
+                    {% if p.horas is defined %}
+                      <div class="col-md-3">
+                        <div class="p-3 border rounded">
+                          <div class="small text-muted">Horas</div>
+                          <div class="fw-semibold">{{ p.horas }}</div>
+                        </div>
+                      </div>
+                    {% endif %}
+                    {% if p.nota %}
+                      <div class="col-12">
+                        <div class="p-3 border rounded">
+                          <div class="small text-muted">Observaciones</div>
+                          <div class="fw-semibold">{{ p.nota }}</div>
+                        </div>
+                      </div>
+                    {% endif %}
+
+                    {% if p.recibo_path %}
+                      <div class="col-12 mt-2">
+                        <div class="p-2 border rounded bg-light">
+                          {% set lower = p.recibo_path|lower %}
+                          {% if lower.endswith('.pdf') %}
+                            <iframe
+                              src="{{ url_for('static', filename=p.recibo_path) }}"
+                              style="width:100%;height:65vh;border:0;border-radius:10px;"
+                              title="Recibo PDF"></iframe>
+                          {% else %}
+                            <img
+                              src="{{ url_for('static', filename=p.recibo_path) }}"
+                              class="img-fluid rounded shadow-sm d-block mx-auto"
+                              alt="Recibo de pago">
+                          {% endif %}
+                        </div>
+                      </div>
+                    {% else %}
+                      <div class="col-12">
+                        <div class="alert alert-warning mb-0">
+                          No hay archivo de recibo disponible.
+                        </div>
+                      </div>
+                    {% endif %}
+                  </div>
+                </div>
+
+                <div class="modal-footer">
+                  {% if not p.verificado_empleado %}
+                    <form method="post" action="{{ url_for('empleado_pagos_confirmar', pid=p.id) }}" class="ms-auto">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button class="btn btn-brand">
+                        <i class="bi bi-check2-circle me-1"></i> Confirmar colilla
+                      </button>
+                    </form>
+                  {% else %}
+                    <button class="btn btn-ghost" data-bs-dismiss="modal">
+                      <i class="bi bi-x-circle me-1"></i> Cerrar
+                    </button>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </div>
+          <!-- /MODAL RECIBO -->
+
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+{% else %}
+  <div class="alert alert-info mb-0">
+    Aún no hay colillas de pago disponibles.
+  </div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // Si quieres confirmar sin recargar (AJAX), descomenta esto y quita el <form>:
+  
+  document.querySelectorAll('[data-confirmar-pago]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const pid = btn.getAttribute('data-pid');
+      btn.disabled = true;
+      try{
+        const res = await fetch(`/empleado/pagos/confirmar/${pid}`, { method:'POST' });
+        if(!res.ok){ window.empToast && window.empToast('No se pudo confirmar.'); btn.disabled=false; return; }
+        window.empToast && window.empToast('¡Confirmado!');
+        setTimeout(()=>location.reload(), 700);
+      }catch(e){
+        window.empToast && window.empToast('Error de red.');
+        btn.disabled=false;
+      }
+    });
+  });
+  
+});
+</script>
+{% endblock %}

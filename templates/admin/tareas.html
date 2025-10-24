@@ -1,0 +1,1133 @@
+{% extends 'admin/base.html' %}
+{% block title %}Tareas · Administración{% endblock %}
+
+{% block styles %}
+<style>
+/* ================= Base (claro/oscuro con Bootstrap 5.3) ================= */
+:root{
+  --ui-primary: var(--bs-primary);
+  --ui-success: var(--bs-success);
+  --ui-surface: var(--bs-tertiary-bg);
+  --ui-border : var(--bs-border-color);
+  --ui-text   : var(--bs-body-color);
+  --ui-soft   : color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 45%);
+  --ui-hover  : color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 25%);
+}
+
+.sheet-page{ display:grid; gap:20px; grid-template-columns:1fr; }
+@media (min-width:992px){ .sheet-page{ grid-template-columns:320px 1fr; } }
+
+.pill-card{
+  background: var(--bs-body-bg);
+  border:1px solid var(--ui-border);
+  border-radius:16px;
+  box-shadow:0 6px 14px rgba(0,0,0,.06);
+}
+
+.mini{ font-size:.85rem; color: var(--bs-secondary-color); }
+.toolbar .btn{ border-radius:999px; }
+.table td,.table th{ vertical-align:middle; }
+.btn-icon{ font-size:1rem; line-height:1; display:inline-flex; align-items:center; }
+
+/* Chips */
+.chip{
+  display:inline-block; padding:.25rem .55rem; border-radius:999px;
+  font-weight:600; font-size:.8rem; border:1px solid var(--ui-border);
+  background: var(--ui-soft); color: var(--ui-text);
+}
+.chip[data-variant="turnos"]{
+  background: color-mix(in oklab, var(--bs-info), transparent 85%);
+  border-color: color-mix(in oklab, var(--bs-info), transparent 65%);
+  color: color-mix(in oklab, var(--bs-info), #000 30%);
+}
+.chip[data-variant="emerg"]{
+  background: color-mix(in oklab, var(--bs-danger), transparent 85%);
+  border-color: color-mix(in oklab, var(--bs-danger), transparent 65%);
+  color: color-mix(in oklab, var(--bs-danger), #000 30%);
+}
+
+/* Botón suave */
+.btn-soft{
+  border:1px solid var(--ui-border);
+  background: var(--bs-body-bg);
+  color: var(--ui-text);
+  border-radius:12px;
+  display:inline-flex; align-items:center; gap:.5rem;
+  padding:.45rem .8rem;
+}
+.btn-soft:hover{ background: var(--ui-hover); }
+
+/* Tabla */
+.table{ --bs-table-color: var(--bs-body-color); --bs-table-bg: transparent; }
+.table thead.table-light{
+  background: var(--ui-soft);
+  color: var(--ui-text);
+  border-bottom:1px solid var(--ui-border);
+}
+.table tbody tr{ transition: background .15s ease; }
+.table tbody tr:hover{ background: var(--ui-hover); }
+.table .btn-group .btn{ border-radius:999px !important; }
+
+/* Dropdown compacto acciones */
+.table .dropdown-menu{ border-radius:12px; }
+
+/* Tip lateral */
+.side-tip .title{ font-weight:800; color: var(--ui-text); }
+.side-tip ul{ margin:0; padding-left:1rem; color: var(--bs-secondary-color); }
+.side-tip li{ margin:.35rem 0; }
+
+/* Cards móviles */
+.task-card{
+  border:1px solid var(--ui-border); border-radius:14px;
+  background: var(--bs-body-bg);
+  padding:.75rem .9rem; box-shadow:0 4px 10px rgba(0,0,0,.05);
+}
+.task-card + .task-card{ margin-top:10px; }
+.task-card .title{ font-weight:700; color: var(--ui-text); }
+.task-card .sub{ color: var(--bs-secondary-color); font-size:.9rem; }
+.task-card .meta{ display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+.task-card .actions .btn{ width:100%; }
+@media (min-width:400px){
+  .task-card .actions{ display:grid; grid-template-columns:1fr 1fr; gap:.5rem; }
+}
+
+/* Toolbar móvil */
+@media (max-width:575.98px){
+  .toolbar{ display:grid; grid-template-columns:1fr; }
+  .toolbar .input-group{ width:100%; margin-left:0 !important; }
+  .toolbar .btn-soft,.toolbar .btn,.toolbar a.btn{ width:100%; justify-content:center; }
+}
+
+/* Modales base */
+#modalGeneral .modal-content{ background:var(--bs-body-bg); border:1px solid var(--ui-border); }
+#modalGeneral .modal-header,#modalGeneral .modal-footer{ background:var(--ui-soft); border-color:var(--ui-border); }
+
+#modalEditarTarea .modal-dialog{
+  max-width:min(1200px,96vw); height:calc(100vh - var(--bs-modal-margin)*2);
+}
+#modalEditarTarea .modal-content{
+  height:100%; display:flex; flex-direction:column;
+  background:var(--bs-body-bg); border:1px solid var(--ui-border);
+}
+#modalEditarTarea .modal-header,#modalEditarTarea .modal-footer{
+  flex:0 0 auto; background:var(--ui-soft); border-color:var(--ui-border);
+}
+#modalEditarTarea .modal-body{
+  flex:1 1 auto; min-height:0!important; overflow:auto!important; background:var(--bs-body-bg);
+}
+
+/* =========================== MODO OSCURO =========================== */
+[data-bs-theme="dark"]{
+  --bs-body-color: #e9eef6;
+  --bs-secondary-color: rgba(233,238,246,.70);
+  --bs-border-color: rgba(255,255,255,.14);
+  color-scheme: dark;
+}
+[data-bs-theme="dark"] .pill-card,
+[data-bs-theme="dark"] .task-card{
+  background: color-mix(in oklab, var(--bs-body-bg), #ffffff 6%);
+  border-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .toolbar .input-group .input-group-text,
+[data-bs-theme="dark"] .toolbar .form-control{
+  background: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 22%);
+  color: var(--bs-body-color);
+  border-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .form-control::placeholder{ color: rgba(233,238,246,.55); }
+[data-bs-theme="dark"] a{ color: color-mix(in oklab, var(--bs-primary), white 10%); }
+[data-bs-theme="dark"] .table{ --bs-table-color: var(--bs-body-color); }
+[data-bs-theme="dark"] .table thead.table-light{
+  background: color-mix(in oklab, var(--bs-body-bg), #ffffff 12%);
+  color: var(--bs-body-color);
+  border-bottom-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .table td,
+[data-bs-theme="dark"] .table th{ border-color: var(--bs-border-color); }
+[data-bs-theme="dark"] .table tbody tr:hover{
+  background: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 18%);
+}
+[data-bs-theme="dark"] .table .fw-semibold{ color:#f2f6ff; }
+[data-bs-theme="dark"] .text-muted{ color: rgba(233,238,246,.70); }
+[data-bs-theme="dark"] .chip{
+  background: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 35%);
+  color: var(--bs-body-color);
+  border-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .btn-outline-secondary{
+  color: var(--bs-body-color); border-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .btn-outline-secondary:hover{
+  background: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 25%);
+}
+[data-bs-theme="dark"] .btn-outline-primary{
+  color: var(--bs-primary);
+  border-color: color-mix(in oklab, var(--bs-primary), transparent 45%);
+}
+[data-bs-theme="dark"] .btn-outline-danger{
+  color: var(--bs-danger);
+  border-color: color-mix(in oklab, var(--bs-danger), transparent 45%);
+}
+[data-bs-theme="dark"] .accordion .accordion-button{
+  background: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 22%);
+  color: var(--bs-body-color);
+  box-shadow: none;
+}
+[data-bs-theme="dark"] .accordion .accordion-button:not(.collapsed){
+  background: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 26%);
+  color: #fff;
+}
+[data-bs-theme="dark"] .accordion .accordion-body{ color: var(--bs-body-color); }
+[data-bs-theme="dark"] .modal-content{
+  background: color-mix(in oklab, var(--bs-body-bg), #ffffff 6%);
+  border-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .modal-header,
+[data-bs-theme="dark"] .modal-footer{
+  background: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 20%);
+  border-color: var(--bs-border-color);
+}
+[data-bs-theme="dark"] .btn-close{ filter: invert(1) grayscale(100%); }
+
+/* ====== Tamaño de botones de acción (compacto en todos) ====== */
+.table .btn-group .btn,
+.task-card .actions .btn{
+  padding: .28rem .55rem;
+  font-size: .85rem;
+  border-radius: 10px !important;
+}
+@media (max-width: 575.98px){
+  .table .btn-group .btn,
+  .task-card .actions .btn{
+    padding: .40rem .70rem;
+    font-size: .99rem;
+    border-radius: 12px !important;
+  }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="sheet-page">
+
+  <!-- LATERAL -->
+  <aside class="side-tip">
+    <div class="pill-card p-3 d-none d-lg-block">
+      <div class="title mb-2">¿Cómo usar “Tareas”?</div>
+      <ul class="mini">
+        <li><b>Activas/Inactivas:</b> filtra con los botones azules.</li>
+        <li><b>Buscar:</b> por nombre o descripción.</li>
+        <li><b>Empleados:</b> administra asignaciones y reportes.</li>
+        <li><b>Historial:</b> muestra cambios de empleados y ajustes.</li>
+        <li><b>Finalizar/Activar:</b> cambia el estado de la tarea.</li>
+        <li>Si la tarea usa <b>turnos</b>, al asignar empleado verás <b>“Doblar turno”</b> (si aplica).</li>
+      </ul>
+    </div>
+    <div class="accordion d-lg-none" id="helpAccordion">
+      <div class="accordion-item pill-card">
+        <h2 class="accordion-header">
+          <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#helpCollapse">
+            Guía rápida
+          </button>
+        </h2>
+        <div id="helpCollapse" class="accordion-collapse collapse show">
+          <div class="accordion-body mini">
+            <ul class="mb-0">
+              <li><b>Activas/Inactivas:</b> filtra con los botones azules.</li>
+              <li><b>Buscar:</b> por nombre o descripción.</li>
+              <li><b>Empleados:</b> administra asignaciones y reportes.</li>
+              <li><b>Historial:</b> muestra cambios de empleados y ajustes.</li>
+              <li><b>Finalizar/Activar:</b> cambia el estado de la tarea.</li>
+              <li>Si la tarea usa <b>turnos</b>, verás <b>“Doblar turno”</b> al asignar.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- CONTENIDO -->
+  <section>
+
+    <!-- Toolbar -->
+    <div class="pill-card p-3 toolbar d-flex flex-wrap gap-2 align-items-center">
+      <div class="d-flex align-items-center gap-2">
+        <a class="btn {% if estado!='inactiva' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('admin_tareas', estado='activa', page=1) }}">Activas</a>
+        <a class="btn {% if estado=='inactiva' %}btn-primary{% else %}btn-outline-primary{% endif %}" href="{{ url_for('admin_tareas', estado='inactiva', page=1) }}">Inactivas</a>
+      </div>
+
+      <div class="input-group ms-auto" style="max-width:420px">
+        <span class="input-group-text">Buscar</span>
+        <input id="filtroTareas" class="form-control" placeholder="Nombre o descripción…">
+      </div>
+
+      <a class="btn-soft" href="{{ url_for('admin_historial_global') }}">
+        <span class="btn-icon"><i class="bi bi-journal-text"></i></span>
+        Historial global
+      </a>
+
+      <button type="button" class="btn-soft" id="btnOpenWpp" title="Enviar por WhatsApp">
+        <span class="btn-icon"><i class="bi bi-whatsapp"></i></span>
+        SetUp
+      </button>
+
+      <a class="btn-soft" href="{{ url_for('admin_tarea_nueva') }}">
+        <span class="btn-icon"><i class="bi bi-plus-lg"></i></span>
+        Nueva tarea
+      </a>
+    </div>
+
+    <!-- LISTADO: Tabla (≥sm) -->
+    <div class="pill-card p-0 mt-3 d-none d-sm-block">
+      <div class="table-responsive">
+        <table class="table table-sm mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>Nombre</th>
+              <th>Ubicación</th>
+              <th>Tipo</th>
+              <th class="text-center">Asignados</th>
+              <th class="text-end">Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyTareas">
+            {% for t in tareas %}
+            {% set asigns = t.asignaciones|default([]) %}
+            {% set p = (t.prioridad|string).lower() %}
+            <tr class="fila-tarea" data-tid="{{ t.id }}" data-texto="{{ (t.nombre ~ ' ' ~ (t.descripcion or ''))|lower }}">
+              <td class="fw-semibold">{{ t.nombre }}</td>
+              <td class="text-muted">{{ t.ubicacion or '-' }}</td>
+              <td>
+                {% if p == 'turnos' %}
+                  <span class="chip" data-variant="turnos">Turnos</span>
+                {% elif p == 'emergencia' %}
+                  <span class="chip" data-variant="emerg">Emergencia</span>
+                {% else %}
+                  <span class="chip">Común</span>
+                {% endif %}
+              </td>
+              <td class="text-center">{{ asigns|length }}</td>
+              <td class="text-end">
+                <div class="btn-group btn-group-sm">
+                  <button type="button" class="btn btn-primary" data-open-editar data-task="{{ t.id }}">Editar</button>
+                  <button type="button" class="btn btn-success" data-open-emps data-task="{{ t.id }}">Empleados</button>
+
+                  <button type="button" class="btn btn-outline-warning" data-open-jornada data-task="{{ t.id }}" title="Hora de salida">
+                    <span class="d-none d-md-inline">Hora salida</span>
+                  </button>
+
+                  <button type="button" class="btn btn-outline-secondary" data-open-hist data-task="{{ t.id }}">Historial</button>
+
+                  {% if t.activa %}
+                    <button type="button" class="btn btn-outline-danger" data-finalizar data-task="{{ t.id }}">Finalizar</button>
+                  {% else %}
+                    <!-- AJUSTES solo en inactivas: Activar / Eliminar -->
+                    <div class="btn-group">
+                      <button type="button" class="btn btn-outline-primary dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
+                        Ajustes
+                      </button>
+                      <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                          <button class="dropdown-item" type="button" data-activar data-task="{{ t.id }}">Activar</button>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                          <button class="dropdown-item text-danger" type="button" data-eliminar data-task="{{ t.id }}">Eliminar</button>
+                        </li>
+                      </ul>
+                    </div>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if tareas|length == 0 %}
+        <div class="p-4 text-center text-muted">No hay tareas en este estado.</div>
+      {% endif %}
+
+      {# Paginación (tabla) para ambos estados #}
+      {% if pagination %}
+      <nav class="p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="mini">
+          Página {{ pagination.page }} de {{ pagination.pages }} · {{ pagination.total }} tareas
+        </div>
+        <ul class="pagination mb-0">
+          <!-- Primera / Anterior -->
+          <li class="page-item {{ 'disabled' if pagination.page <= 1 }}">
+            <a class="page-link" href="{{ url_for('admin_tareas', estado=estado, page=1) }}">«</a>
+          </li>
+          <li class="page-item {{ 'disabled' if pagination.page <= 1 }}">
+            <a class="page-link" href="{{ url_for('admin_tareas', estado=estado, page=pagination.page - 1) }}">‹ Anterior</a>
+          </li>
+
+          <!-- Ventana de páginas -->
+          {% set p = pagination.page %}
+          {% set total = pagination.pages %}
+          {% set start = [1, p - 2]|max %}
+          {% set end = [total, p + 2]|min %}
+          {% for n in range(start, end + 1) %}
+            <li class="page-item {{ 'active' if n == p }}">
+              <a class="page-link" href="{{ url_for('admin_tareas', estado=estado, page=n) }}">{{ n }}</a>
+            </li>
+          {% endfor %}
+
+          <!-- Siguiente / Última -->
+          <li class="page-item {{ 'disabled' if pagination.page >= pagination.pages }}">
+            <a class="page-link" href="{{ url_for('admin_tareas', estado=estado, page=pagination.page + 1) }}">Siguiente ›</a>
+          </li>
+          <li class="page-item {{ 'disabled' if pagination.page >= pagination.pages }}">
+            <a class="page-link" href="{{ url_for('admin_tareas', estado=estado, page=pagination.pages) }}">»</a>
+          </li>
+        </ul>
+      </nav>
+      {% endif %}
+    </div>
+
+    <!-- LISTADO: Tarjetas (xs) -->
+    <div class="mt-3 d-sm-none d-block" id="cardsTareas">
+      {% for t in tareas %}
+      {% set asigns = t.asignaciones|default([]) %}
+      {% set p = (t.prioridad|string).lower() %}
+      <div class="task-card" data-tid="{{ t.id }}" data-texto="{{ (t.nombre ~ ' ' ~ (t.descripcion or ''))|lower }}">
+        <div class="d-flex justify-content-between align-items-start gap-2">
+          <div>
+            <div class="title">{{ t.nombre }}</div>
+            <div class="sub">{{ t.ubicacion or '-' }}</div>
+          </div>
+          <div>
+            {% if p == 'turnos' %}
+              <span class="chip" data-variant="turnos">Turnos</span>
+            {% elif p == 'emergencia' %}
+              <span class="chip" data-variant="emerg">Emergencia</span>
+            {% else %}
+              <span class="chip">Común</span>
+            {% endif %}
+          </div>
+        </div>
+        <div class="meta mt-2">
+          <span class="mini">Asignados: <b>{{ asigns|length }}</b></span>
+        </div>
+        <div class="actions mt-2">
+          <button type="button" class="btn btn-primary" data-open-editar data-task="{{ t.id }}">Editar</button>
+          <button type="button" class="btn btn-success" data-open-emps data-task="{{ t.id }}">Empleados</button>
+          <button type="button" class="btn btn-outline-warning w-100 mt-2" data-open-jornada data-task="{{ t.id }}" title="Hora de salida">
+            Hora salida
+          </button>
+          <button type="button" class="btn btn-outline-secondary w-100 mt-2" data-open-hist data-task="{{ t.id }}">Historial</button>
+
+          {% if t.activa %}
+            <button type="button" class="btn btn-outline-danger w-100 mt-2" data-finalizar data-task="{{ t.id }}">Finalizar</button>
+          {% else %}
+            <div class="dropdown mt-2 w-100">
+              <button class="btn btn-outline-primary w-100 dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                Ajustes
+              </button>
+              <ul class="dropdown-menu dropdown-menu-end w-100">
+                <li>
+                  <button class="dropdown-item" type="button" data-activar data-task="{{ t.id }}">Activar</button>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                  <button class="dropdown-item text-danger" type="button" data-eliminar data-task="{{ t.id }}">Eliminar</button>
+                </li>
+              </ul>
+            </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+
+      {% if tareas|length == 0 %}
+        <div class="p-4 text-center text-muted">No hay tareas en este estado.</div>
+      {% endif %}
+
+      {# Paginación (tarjetas) para ambos estados #}
+      {% if pagination %}
+      <nav class="p-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div class="mini">
+          Página {{ pagination.page }} de {{ pagination.pages }} · {{ pagination.total }} tareas
+        </div>
+        <ul class="pagination mb-0">
+          <li class="page-item {{ 'disabled' if pagination.page <= 1 }}">
+            <a class="page-link" href="{{ url_for('admin_tareas', estado=estado, page=1) }}">«</a>
+          </li>
+          <li class="page-item {{ 'disabled' if pagination.page <= 1 }}">
+            <a class="page-link" href="{{ url_for('admin_tareas', estado=estado, page=pagination.page - 1) }}">‹ Anterior</a>
+          </li>
+
+          {% set p = pagination.page %}
+          {% set total = pagination.pages %}
+          {% set start = [1, p - 2]|max %}
+          {% set end = [total, p + 2]|min %}
+          {% for n in range(start, end + 1) %}
+            <li class="page-item {{ 'active' if n == p }}">
+              <a class="page-link" href="{{ url_for('admin_tareas', estado=estado, page=n) }}">{{ n }}</a>
+            </li>
+          {% endfor %}
+
+          <li class="page-item {{ 'disabled' if pagination.page >= pagination.pages }}">
+            <a class="page-link" href="{{ url_for('admin_tareas', estado=estado, page=pagination.page + 1) }}">Siguiente ›</a>
+          </li>
+          <li class="page-item {{ 'disabled' if pagination.page >= pagination.pages }}">
+            <a class="page-link" href="{{ url_for('admin_tareas', estado=estado, page=pagination.pages) }}">»</a>
+          </li>
+        </ul>
+      </nav>
+      {% endif %}
+    </div>
+
+  </section>
+</div>
+
+<!-- Modal genérico (Empleados / Historial / Jornada) -->
+<div class="modal fade" id="modalGeneral" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-scrollable modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="modalGeneralTitle">Modal</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="modalGeneralBody">Cargando…</div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal EDITAR -->
+<div class="modal fade" id="modalEditarTarea" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl modal-dialog-centered">
+    <div class="modal-content">
+      <form id="formEditarTarea" class="p-0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <input type="hidden" name="__accion" value="editar">
+        <input type="hidden" id="editTid">
+        <div class="modal-header">
+          <h5 class="modal-title">Editar tarea</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+
+        <div class="modal-body">
+          <div class="pill-card p-3">
+
+            <div class="row g-3 align-items-end">
+              <div class="col-lg-5">
+                <label class="form-label">Nombre</label>
+                <input class="form-control" name="nombre" id="editNombre" required>
+              </div>
+              <div class="col-lg-4">
+                <label class="form-label">Ubicación</label>
+                <input class="form-control" name="ubicacion" id="editUbicacion">
+              </div>
+              <div class="col-lg-3">
+                <label class="form-label">Prioridad</label>
+                <div class="input-group">
+                  <span class="input-group-text">Nivel</span>
+                  <select class="form-select" name="prioridad" id="editPrioridad" required>
+                    <option value="comun">🟢 Común</option>
+                    <option value="turnos">🔄 Turnos</option>
+                    <option value="emergencia">🔴 Emergencia</option>
+                  </select>
+                </div>
+                <div id="edit-emerg-turnos" class="form-check form-switch mt-2 d-none">
+                  <input class="form-check-input" type="checkbox" id="editEmergEsTurnos">
+                  <label class="form-check-label" for="editEmergEsTurnos">¿Es por turnos?</label>
+                </div>
+              </div>
+
+              <div class="col-12">
+                <div class="form-check form-switch">
+                  <input class="form-check-input" type="checkbox" id="editToggleDesc">
+                  <label class="form-check-label" for="editToggleDesc">Editar descripción</label>
+                </div>
+                <div id="editDescBox" class="mt-2 d-none">
+                  <textarea class="form-control" name="descripcion" id="editDescripcion" rows="2" placeholder="Resumen breve…"></textarea>
+                </div>
+              </div>
+            </div>
+
+            <hr class="my-4">
+
+            <div class="row g-3 align-items-end">
+              <div class="col-md-4">
+                <label class="form-label">Fecha de inicio</label>
+                <input type="date" class="form-control" name="fecha_inicio" id="editFechaInicio">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Hora de inicio</label>
+                <input type="time" class="form-control" name="hora_inicio" id="editHoraInicio">
+              </div>
+              <div class="col-md-4">
+                <label class="form-label">Tolerancia (min)</label>
+                <input type="number" class="form-control" name="tolerancia_min" id="editTol" min="0" max="120">
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">Zona horaria (USA)</label>
+                <div class="input-group">
+                  <span class="input-group-text">TZ</span>
+                  <select class="form-select" id="editTzSelect">
+                    <option value="America/New_York">America/New_York (EDT/EST)</option>
+                    <option value="America/Chicago">America/Chicago (CDT/CST)</option>
+                    <option value="America/Denver">America/Denver (MDT/MST)</option>
+                    <option value="America/Los_Angeles">America/Los_Angeles (PDT/PST)</option>
+                    <option value="_manual">Otra… (IANA)</option>
+                  </select>
+                  <input type="text" class="form-control d-none" id="editTzManual" placeholder="Ej: America/Phoenix">
+                </div>
+                <input type="hidden" name="tz_name" id="editTzHidden" value="">
+                <div class="form-text">Si no es USA, se forzará New_York.</div>
+              </div>
+            </div>
+
+            <div id="editTurnosSection" class="mt-3 d-none">
+              <div class="pill-card p-3">
+                <div class="d-flex align-items-center justify-content-between">
+                  <div class="chip">Turnos del día</div>
+                  <div class="input-group" style="max-width:240px">
+                    <span class="input-group-text">N° turnos</span>
+                    <input type="number" min="1" max="24" value="2" class="form-control" id="editNumTurnos" name="num_turnos">
+                  </div>
+                </div>
+                <div id="editTurnosHint" class="alert alert-info d-none mt-2 mb-0" role="alert" style="border-radius:12px;">
+                  Esta tarea usa <b>turnos</b>. Debes asignar un turno a cada empleado vigente desde <b>Empleados</b>.
+                </div>
+                <div class="mini mt-2">Ajusta manualmente si deseas.</div>
+                <div id="editTurnosWrap" class="row g-2 mt-2"></div>
+              </div>
+            </div>
+
+            <hr class="my-4">
+
+            <div>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" id="editToggleReportes">
+                <label class="form-check-label" for="editToggleReportes">Modificar reportes</label>
+              </div>
+              <div id="editReportesBox" class="mt-2 d-none">
+                <div class="chip mb-2">Indicaciones y ventana horaria</div>
+                <div class="row g-2 align-items-end mb-2">
+                  <div class="col-md-4">
+                    <label class="form-label">Cantidad de reportes al día</label>
+                    <input type="number" min="1" max="10" class="form-control" id="editCantidadReportes" name="cantidad_reportes">
+                  </div>
+                </div>
+                <div id="editIndicacionesWrap" class="row g-2"></div>
+                <div class="mini text-muted mt-1">Las horas usan la TZ de la tarea.</div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+          <button class="btn btn-primary">Guardar cambios</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal ENVIAR WHATSAPP -->
+<div class="modal fade" id="modalEnviarWpp" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-md modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Enviar tareas por WhatsApp</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="input-group">
+          <input type="tel" class="form-control" id="wppNumberModal" placeholder="+34600111222 / 5215555555555 / 3123456789">
+        </div>
+        <div class="form-text mt-2">Ingresa un número de WhatsApp (internacional o local). Se abrirá en una pestaña nueva.</div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button type="button" class="btn btn-success" id="btnSendWppFromModal">Enviar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Template del modal "Hora de salida" -->
+{% include 'admin/_modal_salida.html' %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+/* Exponer CSRF a JS */
+window.CSRF = '{{ csrf_token() }}';
+
+/* Backdrop fix para modales encadenados */
+document.addEventListener('hidden.bs.modal', function (ev) {
+  const id = (ev.target && ev.target.id) || '';
+  if (/^empfx(Edit|San)-\d+$/i.test(id)) {
+    ev.stopImmediatePropagation();
+    ev.stopPropagation();
+    const body = document.getElementById('modalGeneralBody');
+    if (body) {
+      body.querySelectorAll('.empfx-panel').forEach(p => p.style.display = 'none');
+      const lista = body.querySelector('.empfx-panel[data-panel="lista"]');
+      if (lista) lista.style.display = 'block';
+    }
+  }
+}, true);
+</script>
+
+<script>
+(function(){
+  if (window._tareasBound) return;
+  window._tareasBound = true;
+
+  const CSRF = window.CSRF || (document.querySelector('input[name="csrf_token"]')?.value) || '';
+  const $  = (s, c=document)=>c.querySelector(s);
+
+  /* Filtro: aplica a tabla y tarjetas */
+  const input = $('#filtroTareas');
+  input?.addEventListener('input', ()=>{
+    const q = (input.value||'').toLowerCase();
+    document.querySelectorAll('.fila-tarea').forEach(tr=>{
+      const txt = tr.dataset.texto || '';
+      tr.style.display = !q || txt.includes(q) ? '' : 'none';
+    });
+    document.querySelectorAll('#cardsTareas .task-card').forEach(card=>{
+      const txt = card.dataset.texto || '';
+      card.style.display = !q || txt.includes(q) ? '' : 'none';
+    });
+  });
+
+  /* Modales base */
+  const modalGeneralEl = $('#modalGeneral');
+  const modalGeneral   = new bootstrap.Modal(modalGeneralEl);
+  const modalTitle     = $('#modalGeneralTitle');
+  const modalBody      = $('#modalGeneralBody');
+
+  const modalEditarEl = $('#modalEditarTarea');
+  const modalEditar   = new bootstrap.Modal(modalEditarEl);
+
+  const modalWppEl = $('#modalEnviarWpp');
+  const modalWpp   = new bootstrap.Modal(modalWppEl);   // <<--- ÚNICA declaración válida
+
+  function runScripts(root){
+    root.querySelectorAll('script').forEach(old=>{
+      const s = document.createElement('script');
+      if (old.src){
+        s.src = old.src + (old.src.includes('?')?'&':'?') + '_=' + Date.now();
+      } else {
+        s.textContent = old.textContent;
+      }
+      if (old.type) s.type = old.type;
+      old.replaceWith(s);
+    });
+  }
+
+  async function openModalURL(url, title, tid){
+    modalTitle.textContent = title || 'Detalle';
+    modalBody.innerHTML = 'Cargando…';
+    if (tid) modalBody.dataset.tid = String(tid);
+    modalGeneral.show();
+    try{
+      const bust = (url.includes('?')?'&':'?') + '_=' + Date.now();
+      const r = await fetch(url + bust, {headers:{'X-Requested-With':'XMLHttpRequest'}, cache:'no-store'});
+      const html = await r.text();
+      modalBody.innerHTML = html && html.trim() ? html : '<div class="p-3 text-danger">Sin contenido.</div>';
+      runScripts(modalBody);
+      if (typeof window.initEmpleadosUI === 'function') window.initEmpleadosUI(modalBody);
+      if (typeof window.initReportesUI  === 'function') window.initReportesUI(modalBody);
+    }catch{
+      modalBody.innerHTML = '<div class="p-3 text-danger">Error cargando.</div>';
+    }
+  }
+
+  /* Clicks principales (delegación) */
+  document.addEventListener('click', async (ev)=>{
+    const btn = ev.target.closest('[data-open-emps],[data-open-hist],[data-open-editar],[data-finalizar],[data-activar],[data-open-jornada],[data-eliminar]');
+    if(!btn) return;
+    ev.preventDefault();
+
+    const tid = btn.getAttribute('data-task');
+
+    if (btn.hasAttribute('data-open-emps')){
+      openModalURL(`/admin/tarea/${tid}/empleados/modal`, 'Empleados de la tarea', tid);
+      return;
+    }
+    if (btn.hasAttribute('data-open-hist')){
+      openModalURL(`/admin/tarea/${tid}/historial/modal`, 'Historial de la tarea', tid);
+      return;
+    }
+    if (btn.hasAttribute('data-open-editar')){
+      try{
+        const r = await fetch(`/admin/tarea/${tid}?format=json`, {headers:{'X-Requested-With':'XMLHttpRequest'}});
+        const {data:t} = await r.json();
+
+        /* Prefill edición */
+        $('#editTid').value         = tid;
+        $('#editNombre').value      = t.nombre || '';
+        $('#editUbicacion').value   = t.ubicacion || '';
+        $('#editDescripcion').value = t.descripcion || '';
+        $('#editFechaInicio').value = t.fecha_inicio || '';
+        $('#editHoraInicio').value  = t.hora_inicio  || '';
+        $('#editTol').value         = t.tolerancia_min || 0;
+        $('#editPrioridad').value   = (t.prioridad || 'comun');
+
+        /* TZ */
+        (function(){
+          const US = new Set(["America/New_York","America/Chicago","America/Denver","America/Los_Angeles","America/Phoenix"]);
+          const sel = $('#editTzSelect'), man = $('#editTzManual'), hid = $('#editTzHidden');
+          let tz = (t.tz_name||"").trim();
+          if (US.has(tz)){ sel.value = tz; man.classList.add('d-none'); man.value = ""; hid.value = tz; }
+          else if (tz){ sel.value='_manual'; man.classList.remove('d-none'); man.value=tz; hid.value=tz; }
+          else { sel.value='America/New_York'; man.classList.add('d-none'); man.value=''; hid.value='America/New_York'; }
+          function sync(){ hid.value = (sel.value==='_manual') ? (man.value||'').trim() : (sel.value||'America/New_York'); }
+          sel.addEventListener('change', ()=>{ const m = sel.value==='_manual'; man.classList.toggle('d-none', !m); if(m) man.focus(); sync(); });
+          man.addEventListener('input', sync);
+          window._syncEditTZ = sync;
+        })();
+
+        /* Desc switch */
+        const hasDesc = !!(t.descripcion && String(t.descripcion).trim());
+        const s = $('#editToggleDesc'), b = $('#editDescBox');
+        s.checked = hasDesc; b.classList.toggle('d-none', !hasDesc);
+        s.onchange = ()=> b.classList.toggle('d-none', !s.checked);
+
+        /* Turnos UI */
+        const sec = $('#editTurnosSection'), wrap = $('#editTurnosWrap'), num = $('#editNumTurnos');
+        const emerg = (String(t.prioridad).toLowerCase()==='emergencia');
+        $('#edit-emerg-turnos').classList.toggle('d-none', !emerg);
+        $('#editEmergEsTurnos').checked = (emerg && Array.isArray(t.turnos) && t.turnos.length>0);
+        const showTurnos = (String(t.prioridad).toLowerCase()==='turnos') || $('#editEmergEsTurnos').checked;
+
+        function buildTurnos(N, arr){
+          wrap.innerHTML = '';
+          N = Math.max(1, N|0);
+          for(let i=1;i<=N;i++){
+            const src = (arr && arr[i-1]) ? arr[i-1] : {};
+            const ini = src.ini ?? src.inicio ?? src.hora_ini ?? '';
+            const fin = src.fin ?? src.hora_fin ?? '';
+            const col = document.createElement('div');
+            col.className='col-12 col-md-6';
+            col.innerHTML = `
+              <div class="pill-card p-2">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                  <span class="chip">Turno ${i}</span>
+                </div>
+                <div class="row g-2">
+                  <div class="col-6">
+                    <div class="input-group"><span class="input-group-text">Inicio</span>
+                      <input type="time" class="form-control" name="turno_${i}_ini" value="${ini||''}">
+                    </div>
+                  </div>
+                  <div class="col-6">
+                    <div class="input-group"><span class="input-group-text">Fin</span>
+                      <input type="time" class="form-control" name="turno_${i}_fin" value="${fin||''}">
+                    </div>
+                  </div>
+                </div>
+              </div>`;
+            wrap.appendChild(col);
+          }
+        }
+
+        sec.classList.toggle('d-none', !showTurnos);
+        $('#editTurnosHint')?.classList.toggle('d-none', !showTurnos);
+        if (showTurnos){
+          const arr = Array.isArray(t.turnos) ? t.turnos : [];
+          num.value = Math.max(1, arr.length || 2);
+          buildTurnos(num.value, arr);
+        }else{
+          wrap.innerHTML=''; num.value='';
+        }
+        $('#editPrioridad').onchange = ()=>{
+          const pr = $('#editPrioridad').value;
+          const emergNow = (pr==='emergencia');
+          $('#edit-emerg-turnos').classList.toggle('d-none', !emergNow);
+          const show = (pr==='turnos') || (emergNow && $('#editEmergEsTurnos').checked);
+          sec.classList.toggle('d-none', !show);
+          $('#editTurnosHint').classList.toggle('d-none', !show);
+          if (show && !num.value){ num.value=2; buildTurnos(2, []); }
+          if (!show) wrap.innerHTML='';
+        };
+        $('#editEmergEsTurnos').onchange = ()=>{
+          const show = $('#editEmergEsTurnos').checked && $('#editPrioridad').value==='emergencia';
+          sec.classList.toggle('d-none', !show);
+          $('#editTurnosHint').classList.toggle('d-none', !show);
+          if (show && !num.value){ num.value=2; buildTurnos(2, []); }
+          if (!show) wrap.innerHTML='';
+        };
+        num.oninput = ()=> buildTurnos(Math.max(1, Math.min(24, parseInt(num.value||'2',10))), null);
+
+        /* Reportes edición */
+        const wrapR = $('#editIndicacionesWrap'), qty = $('#editCantidadReportes');
+        function buildReportes(n, arr){
+          wrapR.innerHTML = '';
+          n = Math.max(1, Math.min(10, n|0));
+          for(let i=1;i<=n;i++){
+            const src = (arr && arr[i-1]) ? arr[i-1] : {};
+            const nombre = src.nombre ?? src.titulo ?? `Reporte ${i}`;
+            const ini    = src.ini ?? src.inicio ?? src.hora_ini ?? '';
+            const fin    = src.fin ?? src.hora_fin ?? '';
+            const row = document.createElement('div');
+            row.className = 'col-12';
+            row.innerHTML = `
+              <div class="pill-card p-2">
+                <div class="row g-2 align-items-end">
+                  <div class="col-md-4">
+                    <label class="form-label">Nombre</label>
+                    <input class="form-control" name="rep${i}_nombre" value="${nombre}">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Hora inicio</label>
+                    <input type="time" class="form-control" name="rep${i}_ini" value="${ini}">
+                  </div>
+                  <div class="col-md-4">
+                    <label class="form-label">Hora fin</label>
+                    <input type="time" class="form-control" name="rep${i}_fin" value="${fin}">
+                  </div>
+                </div>
+              </div>`;
+            wrapR.appendChild(row);
+          }
+        }
+
+        const rlist = (Array.isArray(t.reportes)?t.reportes:[]).map(r=>({
+          nombre: r.nombre ?? r.titulo ?? '',
+          ini:    r.ini ?? r.inicio ?? r.hora_ini ?? '',
+          fin:    r.fin ?? r.hora_fin ?? ''
+        }));
+        const tRep = $('#editToggleReportes'), boxRep = $('#editReportesBox');
+        if (rlist.length){ qty.value=rlist.length; tRep.checked=true; boxRep.classList.remove('d-none'); buildReportes(rlist.length, rlist); }
+        else { wrapR.innerHTML=''; qty.value=''; tRep.checked=false; boxRep.classList.add('d-none'); }
+        tRep.onchange = ()=>{ const on=tRep.checked; boxRep.classList.toggle('d-none', !on); if(on && !qty.value){ qty.value=rlist.length||1; buildReportes(parseInt(qty.value,10), rlist);} if(!on) wrapR.innerHTML=''; };
+        qty.oninput   = ()=> buildReportes(Math.max(1, Math.min(10, parseInt(qty.value||'1',10))), rlist);
+
+        document.querySelectorAll('.modal.show').forEach(m=>bootstrap.Modal.getInstance(m)?.hide());
+        modalEditar.show();
+      }catch{ alert('No se pudo cargar la tarea'); }
+      return;
+    }
+
+    if (btn.hasAttribute('data-finalizar')){
+      if(!confirm('¿Finalizar esta tarea?')) return;
+      const r = await fetch(`/admin/tarea/${tid}/finalizar`, {method:'POST', headers:{'X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'}});
+      if(r.ok) location.reload();
+      return;
+    }
+    if (btn.hasAttribute('data-activar')){
+      const r = await fetch(`/admin/tarea/${tid}/activar`, {method:'POST', headers:{'X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'}});
+      if(r.ok) location.reload();
+      return;
+    }
+    if (btn.hasAttribute('data-eliminar')){
+      const ok = confirm('Vas a eliminar la tarea.\n\n⚠️ Perderás la información en la base de datos de ese tiempo.\n\n¿Deseas continuar?');
+      if(!ok) return;
+      try{
+        const fd = new FormData();
+        fd.append('csrf_token', CSRF);
+        const r = await fetch(`/admin/tarea/${tid}/eliminar`, {
+          method:'POST',
+          headers:{ 'X-Requested-With':'XMLHttpRequest', 'X-CSRFToken':CSRF, 'X-CSRF-Token':CSRF },
+          body: fd
+        });
+        if(r.ok){
+          const j = await r.json().catch(()=>({ok:true}));
+          if (j.ok !== false){ location.reload(); return; }
+          alert(j.error || 'No se pudo eliminar la tarea.');
+        }else{
+          const j = await r.json().catch(()=>({}));
+          alert(j.error || 'No se pudo eliminar la tarea.');
+        }
+      }catch{
+        alert('Error de red al eliminar la tarea.');
+      }
+      return;
+    }
+
+    /* Hora de salida */
+    if (btn.hasAttribute('data-open-jornada')){
+      const tidNum = Number(tid);
+      modalTitle.textContent = 'Hora de salida · Tarea #' + tidNum;
+      const tpl = document.getElementById('tplModalSalida');
+      if (!tpl){ alert('No se encontró el template del modal de salida.'); return; }
+      modalBody.innerHTML = '';
+      modalBody.appendChild(tpl.content.cloneNode(true));
+      modalGeneral.show();
+      if (typeof window.initModalSalida === 'function'){
+        window.initModalSalida(modalBody, { tareaId: tidNum });
+      } else {
+        console.warn('initModalSalida no está definida');
+      }
+      return;
+    }
+  });
+
+  /* WhatsApp (usa la MISMA instancia modalWpp) */
+  document.getElementById('btnOpenWpp')?.addEventListener('click', ()=>{
+    document.getElementById('wppNumberModal').value = '';
+    modalWpp.show();
+    setTimeout(()=> document.getElementById('wppNumberModal')?.focus(), 120);
+  });
+  document.getElementById('btnSendWppFromModal')?.addEventListener('click', ()=>{
+    let raw = (document.getElementById('wppNumberModal').value||'').trim().replace(/[^0-9+]/g,'').replace(/(?!^)\+/g,'');
+    const digits = raw.replace(/\D/g,'');
+    if (digits.length < 8){ alert('Número inválido.'); return; }
+    const to = raw.startsWith('+') ? raw : ('+'+raw);
+    window.open(`/admin/setup-whatsapp?to=${encodeURIComponent(to)}`, '_blank', 'noopener');
+    modalWpp.hide();
+  });
+
+  /* Guardar edición */
+  document.getElementById('formEditarTarea')?.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const fd  = new FormData(e.target);
+    const tid = document.getElementById('editTid').value;
+    const pr  = fd.get('prioridad');
+
+    if (pr === 'emergencia'){
+      const esTurnos = document.getElementById('editEmergEsTurnos').checked;
+      if (!esTurnos){ [...fd.keys()].forEach(k=>/^turno_/.test(k)&&fd.delete(k)); fd.delete('num_turnos'); }
+      else if (!fd.get('num_turnos')) { fd.set('num_turnos', '2'); }
+    } else if (pr === 'comun'){
+      [...fd.keys()].forEach(k=>/^turno_/.test(k)&&fd.delete(k)); fd.delete('num_turnos');
+    } else if (pr === 'turnos'){
+      if (!fd.get('num_turnos')) fd.set('num_turnos', '2');
+    }
+
+    if (!document.getElementById('editToggleReportes').checked){
+      fd.delete('cantidad_reportes');
+      [...fd.keys()].forEach(k=>/^rep\d+_(nombre|ini|fin)$/.test(k)&&fd.delete(k));
+    }
+
+    (function(){
+      const US = new Set(["America/New_York","America/Chicago","America/Denver","America/Los_Angeles","America/Phoenix"]);
+      if (typeof window._syncEditTZ === 'function') window._syncEditTZ();
+      let tz = (document.getElementById('editTzHidden').value || '').trim();
+      if (!tz || !US.has(tz)) tz = 'America/New_York';
+      fd.set('tz_name', tz);
+    })();
+
+    try{
+      const r = await fetch(`/admin/tarea/${tid}`, { method:'POST', headers:{'X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'}, body: fd });
+      const j = await r.json().catch(()=>({}));
+      if (r.ok && (j.ok===true || Object.keys(j).length===0)){
+        const emergTurnos = (pr==='emergencia' && document.getElementById('editEmergEsTurnos').checked);
+        const tieneTurnos = (pr==='turnos') || emergTurnos;
+        bootstrap.Modal.getInstance(document.getElementById('modalEditarTarea')).hide();
+        if (tieneTurnos){
+          openModalURL(`/admin/tarea/${tid}/empleados/modal`, 'Empleados de la tarea', tid);
+          const once = ()=>{ document.getElementById('modalGeneral').removeEventListener('hidden.bs.modal', once); location.reload(); };
+          document.getElementById('modalGeneral').addEventListener('hidden.bs.modal', once);
+        } else {
+          location.reload();
+        }
+      } else {
+        alert(j.msg || 'No se pudo guardar');
+      }
+    }catch{ alert('Error de red'); }
+  });
+
+  /* API Empleados */
+  window.initEmpleadosUI = function(root){
+    if (!root) return;
+
+    const form     = root.querySelector('#empfxAddForm');
+    const turnoSel = root.querySelector('select[name="turno_num"]');
+
+    if (turnoSel && !root.querySelector('[name="doblar_turno"]')){
+      const holder = document.createElement('div');
+      holder.className = 'form-check form-switch mt-2';
+      holder.innerHTML = `
+        <input class="form-check-input" type="checkbox" id="empfxDoblarTurno" name="doblar_turno" value="1">
+        <label class="form-check-label" for="empfxDoblarTurno">Doblar turno</label>`;
+      turnoSel.closest('.form-group, .mb-2, .col, .row, form')?.appendChild(holder);
+    }
+
+    const nombre   = root.querySelector('input[name="nombre"]');
+    const telefono = root.querySelector('input[name="telefono"]');
+    const usuario  = root.querySelector('input[name="usuario_id"]');
+    const tarifa   = root.querySelector('input[name="tarifa_hora"], select[name="tarifa_hora"]');
+    const currentTid = root.dataset.tid || (document.getElementById('modalGeneralBody').dataset.tid) || '';
+
+    const $mkBox = (inp)=>{
+      const box = document.createElement('div');
+      box.className='list-group position-absolute w-100';
+      Object.assign(box.style,{zIndex:1056,maxHeight:'220px',overflowY:'auto',display:'none'});
+      inp.parentElement.style.position='relative';
+      inp.parentElement.appendChild(box);
+      return box;
+    };
+    const boxN = nombre   ? $mkBox(nombre)   : null;
+    const boxT = telefono ? $mkBox(telefono) : null;
+
+    async function buscar(q){
+      if(!q || q.trim().length<2) return [];
+      const r = await fetch(`/admin/empleados/buscar?q=${encodeURIComponent(q.trim())}`, {headers:{'X-Requested-With':'XMLHttpRequest'}});
+      return await r.json().catch(()=>[]);
+    }
+    function pintar(box, lista){
+      if(!box) return;
+      box.innerHTML = '';
+      if(!lista.length){ box.style.display='none'; return; }
+      lista.forEach(u=>{
+        const b = document.createElement('button');
+        b.type='button'; b.className='list-group-item list-group-item-action';
+        b.textContent = `${u.name}${u.phone ? ' · ' + u.phone : ''}`;
+        b.onclick = ()=>{ if(nombre) nombre.value=u.name||''; if(telefono) telefono.value=u.phone||''; if(usuario) usuario.value=u.id||''; box.style.display='none'; };
+        box.appendChild(b);
+      });
+      box.style.display='block';
+    }
+
+    let tmN=null, tmT=null;
+    nombre?.addEventListener('input', ()=>{ if(usuario) usuario.value=''; clearTimeout(tmN); tmN=setTimeout(async()=> pintar(boxN, await buscar(nombre.value)),180); });
+    telefono?.addEventListener('input', ()=>{ if(usuario) usuario.value=''; clearTimeout(tmT); tmT=setTimeout(async()=> pintar(boxT, await buscar(telefono.value)),180); });
+    nombre?.addEventListener('blur', ()=> setTimeout(()=> boxN && (boxN.style.display='none'),120));
+    telefono?.addEventListener('blur',()=> setTimeout(()=> boxT && (boxT.style.display='none'),120));
+
+    form?.addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      if (usuario && !usuario.value){
+        let lista=[];
+        if (nombre && nombre.value.trim().length>=2) lista = await buscar(nombre.value);
+        else if (telefono && telefono.value.trim().length>=2) lista = await buscar(telefono.value);
+        if (lista.length===1) usuario.value = lista[0].id;
+      }
+      if (!nombre || !nombre.value.trim()){ alert('Nombre es obligatorio.'); nombre?.focus(); return; }
+      if (!telefono || !telefono.value.trim()){ alert('Teléfono/WhatsApp es obligatorio.'); telefono?.focus(); return; }
+      if (!tarifa || !String((tarifa.value||'').trim())){ alert('Tarifa por hora es obligatoria.'); tarifa?.focus(); return; }
+      if (turnoSel && !turnoSel.value){ alert('Debes seleccionar un turno.'); turnoSel?.focus(); return; }
+
+      const tval = String(tarifa.value).replace(',', '.');
+      if (isNaN(parseFloat(tval))){ alert('Tarifa inválida.'); tarifa.focus(); return; }
+      tarifa.value = parseFloat(tval).toString();
+
+      const fd = new FormData(form);
+      if (currentTid && !fd.get('tarea_id')) fd.set('tarea_id', currentTid);
+
+      try{
+        const r = await fetch(form.action, {method:'POST', headers:{'X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'}, body:fd});
+        const ctype = (r.headers.get('content-type') || '').toLowerCase();
+        let j = {};
+        if (ctype.includes('application/json')) {
+          j = await r.json().catch(()=>({}));
+        }
+        if (r.ok && (j.ok === true || ctype.includes('text/html'))) {
+          location.reload();
+        } else {
+          alert(j.error || 'No se pudo asignar el empleado.');
+        }
+      }catch{
+        alert('Error de red asignando el empleado.');
+      }
+    });
+  };
+
+})();
+</script>
+{% endblock %}

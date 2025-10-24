@@ -1,0 +1,125 @@
+{# templates/admin/_horas_agrupado.html #}
+<div class="card shadow-sm">
+  <div class="p-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="fw-semibold">Agrupado por tareas</div>
+    <div class="text-muted small">Rango: {{ d_from.strftime("%Y-%m-%d") }} – {{ d_to.strftime("%Y-%m-%d") }}</div>
+  </div>
+
+  {% if grupos and grupos|length>0 %}
+  <div class="accordion" id="accTasks">
+    {% for g in grupos %}
+    {% set acc_id = "task-" ~ g.tarea_id %}
+
+    {# ---- Deduplicar por empleado (uid) dentro de cada tarea ---- #}
+    {% set agg = {} %}
+    {% for e in g.empleado_det %}
+      {% set key = e.uid %}
+      {% set old = agg.get(key) %}
+      {% if old %}
+        {% set _ = agg.update({
+          key: {
+            "uid": key,
+            "nombre": e.nombre or old.nombre,
+            "horas": (old.horas or 0) + (e.horas or 0),
+            "pago":  (old.pago  or 0) + (e.pago  or 0),
+            "rep_ok": (old.rep_ok or 0) + ((e.rep_ok or 0)|int),
+            "rep_tot": (old.rep_tot or 0) + ((e.rep_tot or 0)|int)
+          }
+        }) %}
+      {% else %}
+        {% set _ = agg.update({
+          key: {
+            "uid": key,
+            "nombre": e.nombre,
+            "horas": (e.horas or 0),
+            "pago":  (e.pago  or 0),
+            "rep_ok": ((e.rep_ok or 0)|int),
+            "rep_tot": ((e.rep_tot or 0)|int)
+          }
+        }) %}
+      {% endif %}
+    {% endfor %}
+    {% set emp_rows = agg.values() | list %}
+
+    <div class="accordion-item">
+      <h2 class="accordion-header" id="h-{{acc_id}}">
+        <button class="accordion-button collapsed"
+                type="button"
+                data-bs-toggle="collapse"
+                data-bs-target="#c-{{acc_id}}"
+                data-emps="{{ emp_rows | map(attribute='nombre') | list | join(' ') | lower }}">
+          <div class="d-flex w-100 align-items-center justify-content-between">
+            <div class="me-3">
+              <strong class="me-2">{{ g.tarea }}</strong>
+              <span class="badge bg-secondary-subtle text-dark">Empleados: {{ (emp_rows|length) }}</span>
+            </div>
+            <div class="text-nowrap small">
+              <span class="me-3">Horas: <strong>{{ '%.1f'|format(g.horas or 0) }}</strong></span>
+              <span class="me-3">Prom. $/h: <strong>${{ '%.2f'|format(g.promedio_hora or 0) }}</strong></span>
+              <span>Avance: <strong>{{ g.pct_reportes|int }}%</strong></span>
+            </div>
+          </div>
+        </button>
+      </h2>
+      <div id="c-{{acc_id}}" class="accordion-collapse collapse" data-bs-parent="#accTasks">
+        <div class="accordion-body p-0">
+          <div class="table-responsive">
+            <table class="table table-sm mb-0 align-middle">
+              <thead class="table-light">
+                <tr>
+                  <th>Empleado</th>
+                  <th class="text-end">Horas</th>
+                  <th class="text-end">Pago</th>
+                  <th class="text-end">Reportes (ok/exp)</th>
+                  <th class="text-end" style="width:150px">Acciones</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% set tot_horas = 0.0 %}
+                {% set tot_pago  = 0.0 %}
+                {% set tot_ok    = 0 %}
+                {% set tot_exp   = 0 %}
+
+                {% for e in emp_rows %}
+                <tr class="js-task-item" data-emps="{{ e.nombre|lower }}">
+                  <td>{{ e.nombre }}</td>
+                  <td class="text-end">{{ '%.1f'|format(e.horas or 0.0) }}</td>
+                  <td class="text-end">${{ '%.2f'|format(e.pago or 0.0) }}</td>
+                  <td class="text-end">{{ (e.rep_ok or 0)|int }}/{{ (e.rep_tot or 0)|int }}</td>
+                  <td class="text-end">
+                    <button class="btn btn-outline-secondary btn-sm js-open-edit-day"
+                            data-uid="{{ e.uid }}"
+                            data-emp-name="{{ e.nombre }}">Editar día</button>
+                    <button class="btn btn-outline-primary btn-sm"
+                            data-open-hist-emp
+                            data-uid="{{ e.uid }}"
+                            data-emp-name="{{ e.nombre }}">Historial</button>
+                  </td>
+                </tr>
+                {% set tot_horas = tot_horas + (e.horas or 0.0) %}
+                {% set tot_pago  = tot_pago  + (e.pago  or 0.0) %}
+                {% set tot_ok    = tot_ok    + ((e.rep_ok  or 0)|int) %}
+                {% set tot_exp   = tot_exp   + ((e.rep_tot or 0)|int) %}
+                {% endfor %}
+              </tbody>
+              <tfoot class="table-light">
+                <tr>
+                  <th>Total</th>
+                  <th class="text-end">{{ '%.1f'|format(tot_horas) }}</th>
+                  <th class="text-end">${{ '%.2f'|format(tot_pago) }}</th>
+                  <th class="text-end">{{ tot_ok }}/{{ tot_exp }}</th>
+                  <th></th>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="p-3 text-muted text-center">No hay tareas para mostrar en el rango.</div>
+  {% endif %}
+</div>

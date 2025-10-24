@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="es" data-bs-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>{% block title %}Supervisor · Fresh's Labors{% endblock %}</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* === Colores del proyecto + acento amarillo supervisor === */
+    :root{
+      --sv-accent:#f9cf43;          /* Amarillo dorado suave */
+      --sv-accent-soft:#ffeeb0;
+      --sv-bg:#f7f4ef;              /* Blanco hueso */
+      --sv-surface:#ffffff;
+      --sv-text:#111827;
+      --sv-muted:#6b7280;
+      --sv-border:#e6eaf6;
+      --sv-shadow:0 10px 22px rgba(27,55,130,.08);
+    }
+    [data-bs-theme="dark"]{
+      --sv-bg:#0f1422;
+      --sv-surface:#141b2b;
+      --sv-text:#eaf0fb;
+      --sv-muted:#9aa9c7;
+      --sv-border:#1e2a45;
+      --sv-shadow:0 12px 28px rgba(0,0,0,.35);
+    }
+
+    html,body{height:100%}
+    body{
+      font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Helvetica Neue,Arial;
+      background: var(--sv-bg);
+      color: var(--sv-text);
+    }
+
+    /* ==== Barra superior, similar a admin ==== */
+    .sv-topbar{
+      position:sticky; top:0; z-index:60;
+      background:var(--sv-surface);
+      border-bottom:1px solid var(--sv-border);
+      box-shadow:var(--sv-shadow);
+    }
+
+    /* Línea distintiva amarilla */
+    .sv-topbar .sv-accent-line{
+      height:4px;
+      background: linear-gradient(90deg, var(--sv-accent), var(--sv-accent-soft) 50%, var(--sv-accent));
+      opacity:.9;
+      border-bottom:1px solid color-mix(in srgb, var(--sv-accent) 40%, var(--sv-border));
+    }
+
+    .sv-brand{
+      display:flex; align-items:center; gap:10px;
+    }
+    .sv-logo{
+      width:34px; height:34px; border-radius:50%;
+      display:flex; align-items:center; justify-content:center;
+      background: var(--sv-accent);
+      color:#2f2f1a; font-weight:800;
+      box-shadow:0 6px 14px rgba(249,207,67,.4);
+    }
+
+    /* Menú de navegación (igual proporción que admin) */
+    .sv-nav{
+      display:flex; gap:6px;
+      border:1px solid var(--sv-border);
+      padding:4px; border-radius:12px;
+      background: color-mix(in srgb, var(--sv-accent) 6%, transparent);
+    }
+    .sv-nav a{
+      text-decoration:none; padding:6px 12px; border-radius:10px;
+      display:flex; align-items:center; gap:6px;
+      color:color-mix(in srgb, var(--sv-text) 90%, var(--sv-muted));
+      border:1px solid transparent;
+      font-weight:500;
+    }
+    .sv-nav a:hover{
+      background:rgba(249,207,67,.12); border-color:var(--sv-border);
+    }
+    .sv-nav a.active{
+      color:#3b3300;
+      background:#fff8d8;
+      border-color:#f9e47a;
+    }
+    [data-bs-theme="dark"] .sv-nav a.active{
+      color:#fdf4c2;
+      background:rgba(249,207,67,.15);
+      border-color:rgba(249,207,67,.35);
+    }
+
+    .sv-main{padding:16px;}
+    .sv-card{
+      background:var(--sv-surface);
+      border:1px solid var(--sv-border);
+      border-radius:16px;
+      box-shadow:var(--sv-shadow);
+    }
+    .sv-btn{
+      border-color:var(--sv-accent)!important;
+      color:var(--sv-accent)!important;
+    }
+    .sv-btn:hover{
+      background:color-mix(in srgb, var(--sv-accent) 18%, transparent);
+    }
+
+    .text-muted{color:var(--sv-muted)!important;}
+  </style>
+  {% block styles %}{% endblock %}
+</head>
+<body>
+
+  <!-- ====== TOPBAR ====== -->
+  <header class="sv-topbar">
+    <div class="container-fluid py-2">
+      <div class="d-flex align-items-center justify-content-between">
+        <!-- Marca -->
+        <div class="sv-brand">
+          <div class="sv-logo">SV</div>
+          <div>
+            <div style="font-weight:800;line-height:1">Supervisor</div>
+            <div class="text-muted small">Fresh's Labors</div>
+          </div>
+        </div>
+
+        <!-- Navegación -->
+        <nav class="sv-nav">
+          <a href="{{ url_for('supervisor_dashboard') }}"
+             class="{% if request.endpoint in ('supervisor_dashboard','supervisor_index') %}active{% endif %}">
+            <i class="bi bi-speedometer2"></i> Dashboard
+          </a>
+          <a href="{{ url_for('supervisor_tareas', estado='activa') }}"
+             class="{% if request.endpoint == 'supervisor_tareas' %}active{% endif %}">
+            <i class="bi bi-kanban"></i> Tareas
+          </a>
+          <a href="{{ url_for('supervisor_empleados') }}"
+             class="{% if request.endpoint == 'supervisor_empleados' %}active{% endif %}">
+            <i class="bi bi-people"></i> Empleados
+          </a>
+        </nav>
+
+        <!-- Acciones -->
+        <div class="d-flex align-items-center gap-2">
+          <button id="svTheme" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-sun-fill d-none" id="icLight"></i>
+            <i class="bi bi-moon-stars-fill" id="icDark"></i>
+          </button>
+          <a class="btn btn-sm btn-outline-danger" href="{{ url_for('logout') }}">
+            <i class="bi bi-box-arrow-right"></i> Cerrar sesión
+          </a>
+        </div>
+      </div>
+    </div>
+    <div class="sv-accent-line"></div>
+  </header>
+
+  <main class="sv-main container-fluid">
+    {% include "components/_flash.html" ignore missing %}
+    {% block content %}{% endblock %}
+  </main>
+
+  <script>
+    // === Toggle claro/oscuro persistente ===
+    (function(){
+      const root=document.documentElement;
+      const btn=document.getElementById('svTheme');
+      const icL=document.getElementById('icLight');
+      const icD=document.getElementById('icDark');
+      const setT=t=>{
+        root.setAttribute('data-bs-theme',t);
+        localStorage.setItem('sv-theme',t);
+        icL.classList.toggle('d-none',t!=='light');
+        icD.classList.toggle('d-none',t==='light');
+      };
+      setT(localStorage.getItem('sv-theme')||'light');
+      btn?.addEventListener('click',()=>{
+        setT(root.getAttribute('data-bs-theme')==='dark'?'light':'dark');
+      });
+    })();
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,156 @@
+{% extends "admin/base.html" %}
+{% block title %}Estadísticas del Sistema{% endblock %}
+{% block content %}
+  {% include "components/_flash.html" %}
+
+<style>
+  .shadow-soft{ box-shadow: 0 10px 24px rgba(27,55,130,.08); }
+  .card-soft{ background: var(--bs-body-bg); border:1px solid var(--border, #e9ecf8); border-radius:16px; }
+  [data-bs-theme="dark"] .card-soft{ border-color: rgba(255,255,255,.08); }
+  [data-bs-theme="dark"] .shadow-soft{ box-shadow: 0 10px 24px rgba(0,0,0,.4); }
+  .mini { color: var(--bs-secondary-color); font-size:.92rem; }
+  .kpi{ display:flex; align-items:center; gap:12px; }
+  .kpi .icon{ width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--bs-tertiary-bg); }
+  .kpi .val{ font-size:1.35rem; font-weight:700; }
+  .table thead th { font-weight:600; letter-spacing:.2px; }
+  .pill-muted { border:1px solid var(--border, #e9ecf8); border-radius:999px; padding:.25rem .6rem; }
+</style>
+
+<!-- Encabezado -->
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div class="d-flex align-items-center gap-2">
+    <i class="bi bi-graph-up"></i>
+    <h4 class="mb-0">Estadísticas del Sistema</h4>
+  </div>
+  <div class="pill-muted mini">
+    <i class="bi bi-calendar-range me-1"></i>
+    Semana: {{ rango[0].strftime("%Y-%m-%d") }} → {{ rango[1].strftime("%Y-%m-%d") }}
+  </div>
+</div>
+
+<!-- Mini ayuda -->
+<div class="card card-soft shadow-soft p-3 mb-4">
+  <div class="d-flex flex-wrap align-items-center gap-3">
+    <span class="mini"><i class="bi bi-info-circle me-1"></i> Panel semanal con conteos clave de tareas, horas y disciplina.</span>
+    <span class="mini">Cruza estos datos con <a href="{{ url_for('admin_reportes_usuario') }}">Reportes de Usuario</a> para tomar decisiones.</span>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="card card-soft shadow-soft p-3">
+      <div class="kpi">
+        <div class="icon"><i class="bi bi-kanban"></i></div>
+        <div>
+          <div class="val">{{ tarjetas.tareas_semana|default(0) }}</div>
+          <div class="mini">Tareas creadas (semana)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card card-soft shadow-soft p-3">
+      <div class="kpi">
+        <div class="icon"><i class="bi bi-hourglass-split"></i></div>
+        <div>
+          <div class="val">{{ '%.2f'|format(tarjetas.horas_semana|default(0)) }}</div>
+          <div class="mini">Horas registradas</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card card-soft shadow-soft p-3">
+      <div class="kpi">
+        <div class="icon"><i class="bi bi-exclamation-octagon"></i></div>
+        <div>
+          <div class="val">{{ tarjetas.sanciones_semana|default(0) }}</div>
+          <div class="mini">Sanciones (7 días)</div>
+        </div>
+      </div>
+      <div class="mini mt-2">Pendientes: <b>{{ tarjetas.sanciones_pend|default(0) }}</b></div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card card-soft shadow-soft p-3">
+      <div class="kpi">
+        <div class="icon"><i class="bi bi-bell-slash"></i></div>
+        <div>
+          <div class="val">{{ tarjetas.faltas_conf_hoy|default(0) }}</div>
+          <div class="mini">Faltas confirmación (hoy)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Bloque disciplinario -->
+<div class="row g-4 mb-4">
+  <div class="col-lg-6">
+    <div class="card card-soft shadow-soft">
+      <div class="p-3 border-bottom d-flex align-items-center gap-2">
+        <i class="bi bi-shield-exclamation"></i><b>Estado disciplinario</b>
+      </div>
+      <div class="p-3">
+        <ul class="list-unstyled mb-0">
+          <li class="d-flex justify-content-between py-1">
+            <span class="mini">Usuarios <b>bloqueados</b></span>
+            <b>{{ tarjetas.bloqueos|default(0) }}</b>
+          </li>
+          <li class="d-flex justify-content-between py-1">
+            <span class="mini">Usuarios <b>baneados</b></span>
+            <b>{{ tarjetas.baneos|default(0) }}</b>
+          </li>
+          <li class="d-flex justify-content-between py-1">
+            <span class="mini">Sanciones <b>pendientes</b></span>
+            <b>{{ tarjetas.sanciones_pend|default(0) }}</b>
+          </li>
+        </ul>
+        <div class="mini mt-2">
+          Revisa detalles y responsables en <a href="{{ url_for('admin_reportes_usuario') }}">Reportes de Usuario</a>.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card card-soft shadow-soft">
+      <div class="p-3 border-bottom d-flex align-items-center gap-2">
+        <i class="bi bi-clipboard2-data"></i><b>Observaciones</b>
+      </div>
+      <div class="p-3">
+        <ul class="mb-0">
+          <li class="mini">Si las horas caen y sanciones suben, evaluar cargas y comunicación de ventanas.</li>
+          <li class="mini">Bloqueos/baneos altos sugieren revisar políticas y formación.</li>
+          <li class="mini">Cruza con exportes semanales (CSV/XLSX) para análisis más fino.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Accesos rápidos -->
+<div class="card card-soft shadow-soft">
+  <div class="p-3 border-bottom d-flex align-items-center gap-2">
+    <i class="bi bi-lightning"></i><b>Accesos rápidos</b>
+  </div>
+  <div class="p-3">
+    <div class="d-flex flex-wrap gap-2">
+      <a class="btn btn-outline-primary" href="{{ url_for('admin_reportes_usuario') }}">
+        <i class="bi bi-clipboard-data me-1"></i> Reportes de usuario
+      </a>
+      <a class="btn btn-outline-secondary" href="/admin/informes/semana.csv">
+        <i class="bi bi-filetype-csv me-1"></i> Informe semana (CSV)
+      </a>
+      <a class="btn btn-outline-secondary" href="/admin/informes/semana.xlsx">
+        <i class="bi bi-file-earmark-spreadsheet me-1"></i> Informe semana (XLSX)
+      </a>
+      <a class="btn btn-outline-dark" href="{{ url_for('admin_system') }}">
+        <i class="bi bi-gear-wide-connected me-1"></i> Ir a Administración
+      </a>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

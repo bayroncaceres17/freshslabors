@@ -1,0 +1,95 @@
+{% extends "admin/base.html" %}
+{% block title %}Historial de Pagos · {{ emp.nombre or emp.email }}{% endblock %}
+
+{% block content %}
+
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+  <div>
+    <h4 class="mb-1">Historial de {{ emp.nombre or emp.email }}</h4>
+    <div class="text-muted small">Consulta y compara pagos por semana (vie→jue).</div>
+  </div>
+
+  <!-- Filtro: elegir jueves -->
+  <form class="d-flex align-items-center gap-2" method="get">
+    <label class="small text-muted">Jueves:</label>
+    <input type="date" class="form-control form-control-sm" name="week_end" value="{{ request.args.get('week_end','') }}">
+    <button class="btn btn-sm btn-outline-secondary">Filtrar</button>
+  </form>
+</div>
+
+{% if estimado %}
+  <div class="row g-3 mb-3">
+    <div class="col-12 col-md-4">
+      <div class="card"><div class="card-body">
+        <div class="text-muted small">Horas estimadas (semana)</div>
+        <div class="fs-3 fw-bold">{{ '%.2f'|format(estimado.horas) }}</div>
+      </div></div>
+    </div>
+    <div class="col-12 col-md-4">
+      <div class="card"><div class="card-body">
+        <div class="text-muted small">Subtotal estimado</div>
+        <div class="fs-3 fw-bold">$ {{ '%.2f'|format(estimado.subtotal) }}</div>
+      </div></div>
+    </div>
+    <div class="col-12 col-md-4 d-flex align-items-center">
+      <a class="btn btn-outline-primary ms-auto"
+         href="{{ url_for('admin_pagos', week_end=estimado.semana_fin.isoformat(), show='all') }}">
+        Ir a pagos de esa semana →
+      </a>
+    </div>
+  </div>
+{% endif %}
+
+<div class="card">
+  <div class="card-body p-0">
+    {% if pagos and pagos|length > 0 %}
+    <div class="table-responsive">
+      <table class="table align-middle mb-0">
+        <thead>
+          <tr>
+            <th>Semana (fin jueves)</th>
+            <th class="text-center">Horas</th>
+            <th class="text-center">Subtotal</th>
+            <th>Colilla</th>
+            <th>Estado</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for p in pagos %}
+          <tr>
+            <td>{{ p.semana_fin.strftime('%a %d %b %Y') }}</td>
+            <td class="text-center">{{ '%.2f'|format(p.horas or 0) }}</td>
+            <td class="text-center">$ {{ '%.2f'|format(p.subtotal or 0) }}</td>
+            <td>
+              {% if p.recibo_path %}
+                {% set is_pdf = p.recibo_path.lower().endswith('.pdf') %}
+                {% if is_pdf %}
+                  <a class="btn btn-sm btn-outline-primary" href="{{ url_for('static', filename=p.recibo_path) if p.recibo_path.startswith('static/') else p.recibo_path }}" target="_blank">
+                    <i class="bi bi-file-earmark-pdf"></i> Ver PDF
+                  </a>
+                {% else %}
+                  <a href="{{ url_for('static', filename=p.recibo_path) if p.recibo_path.startswith('static/') else p.recibo_path }}" target="_blank">Ver imagen</a>
+                {% endif %}
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if p.verificado_empleado %}
+                <span class="badge bg-success">Verificado</span>
+              {% else %}
+                <span class="badge bg-warning text-dark">Pendiente</span>
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+      <div class="p-4 text-center text-muted">Sin pagos registrados.</div>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

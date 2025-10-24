@@ -1,0 +1,224 @@
+{% extends "admin/base.html" %}
+{% block title %}Reportes de Usuario{% endblock %}
+{% block content %}
+  {% include "components/_flash.html" %}
+
+<style>
+  .shadow-soft{ box-shadow: 0 10px 24px rgba(27,55,130,.08); }
+  .card-soft{ background: var(--bs-body-bg); border:1px solid var(--border, #e9ecf8); border-radius:16px; }
+  [data-bs-theme="dark"] .card-soft{ border-color: rgba(255,255,255,.08); }
+  [data-bs-theme="dark"] .shadow-soft{ box-shadow: 0 10px 24px rgba(0,0,0,.4); }
+  .mini { color: var(--bs-secondary-color); font-size:.92rem; }
+  .kpi{ display:flex; align-items:center; gap:12px; }
+  .kpi .icon{ width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;background:var(--bs-tertiary-bg); }
+  .kpi .val{ font-size:1.25rem; font-weight:700; }
+  .table thead th { font-weight:600; letter-spacing:.2px; }
+  .chip{ border:1px solid var(--border, #e9ecf8); border-radius:999px; padding:.25rem .6rem; }
+</style>
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div class="d-flex align-items-center gap-2">
+    <i class="bi bi-clipboard-data"></i>
+    <h4 class="mb-0">Reportes de Usuario</h4>
+  </div>
+  <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_system') }}">
+    <i class="bi bi-arrow-left me-1"></i> Volver a Administración
+  </a>
+</div>
+
+<!-- Mini ayuda -->
+<div class="card card-soft shadow-soft p-3 mb-4">
+  <div class="d-flex flex-wrap align-items-center gap-3">
+    <span class="mini"><i class="bi bi-info-circle me-1"></i> Vista semanal de actividad: reportes, sanciones, faltas de confirmación.</span>
+    <span class="mini">Usa estos KPIs para detectar riesgos y priorizar seguimiento.</span>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="row g-3 mb-4">
+  <div class="col-6 col-lg-3">
+    <div class="card card-soft shadow-soft p-3">
+      <div class="kpi">
+        <div class="icon"><i class="bi bi-list-check"></i></div>
+        <div>
+          <div class="val">{{ datos.total_reportes|default(0) }}</div>
+          <div class="mini">Reportes (7 días)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card card-soft shadow-soft p-3">
+      <div class="kpi">
+        <div class="icon"><i class="bi bi-people"></i></div>
+        <div>
+          <div class="val">{{ datos.total_usuarios|default(0) }}</div>
+          <div class="mini">Empleados activos</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card card-soft shadow-soft p-3">
+      <div class="kpi">
+        <div class="icon"><i class="bi bi-exclamation-triangle"></i></div>
+        <div>
+          <div class="val">{{ datos.sanciones_semana|default(0) }}</div>
+          <div class="mini">Sanciones (7 días)</div>
+        </div>
+      </div>
+      <div class="progress mt-2" role="progressbar" aria-label="Sanciones porcentaje"
+           aria-valuenow="{{ datos.pct_users_sancionados|default(0) }}" aria-valuemin="0" aria-valuemax="100">
+        <div class="progress-bar" style="width: {{ datos.pct_users_sancionados|default(0) }}%"></div>
+      </div>
+      <div class="mini mt-1">{{ datos.pct_users_sancionados|default(0) }}% de empleados con sanción</div>
+    </div>
+  </div>
+  <div class="col-6 col-lg-3">
+    <div class="card card-soft shadow-soft p-3">
+      <div class="kpi">
+        <div class="icon"><i class="bi bi-bell-slash"></i></div>
+        <div>
+          <div class="val">{{ datos.faltas_conf_hoy|default(0) }}</div>
+          <div class="mini">Faltas de confirmación (hoy)</div>
+        </div>
+      </div>
+      <div class="mini mt-2">
+        Pendientes de validar ventana de confirmación.
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Sanciones por tipo -->
+  <div class="col-lg-6">
+    <div class="card card-soft shadow-soft">
+      <div class="p-3 border-bottom d-flex align-items-center gap-2">
+        <i class="bi bi-diagram-3"></i><b>Sanciones por tipo</b>
+      </div>
+      <div class="p-3">
+        {% set total_tipo = (datos.por_tipo.values()|sum if datos.por_tipo else 0) %}
+        {% if total_tipo > 0 %}
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead class="table-light">
+              <tr><th>Tipo</th><th class="text-center">#</th><th style="width:42%;">%</th></tr>
+            </thead>
+            <tbody>
+              {% for tipo, cnt in datos.por_tipo.items() %}
+              {% set pct = ( (cnt / total_tipo) * 100 ) | round(1) %}
+              <tr>
+                <td><span class="chip">{{ tipo }}</span></td>
+                <td class="text-center">{{ cnt }}</td>
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="progress flex-grow-1" style="height:8px;">
+                      <div class="progress-bar" style="width: {{ pct }}%"></div>
+                    </div>
+                    <span class="mini" style="min-width:52px; text-align:right;">{{ pct }}%</span>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+          <div class="mini">Sin sanciones registradas por tipo en el rango.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Sanciones por nivel -->
+  <div class="col-lg-6">
+    <div class="card card-soft shadow-soft">
+      <div class="p-3 border-bottom d-flex align-items-center gap-2">
+        <i class="bi bi-speedometer2"></i><b>Sanciones por nivel</b>
+      </div>
+      <div class="p-3">
+        {% set total_nivel = (datos.por_nivel.values()|sum if datos.por_nivel else 0) %}
+        {% if total_nivel > 0 %}
+        <div class="table-responsive">
+          <table class="table align-middle">
+            <thead class="table-light">
+              <tr><th>Nivel</th><th class="text-center">#</th><th style="width:42%;">%</th></tr>
+            </thead>
+            <tbody>
+              {% for nivel, cnt in datos.por_nivel.items() %}
+              {% set pct = ( (cnt / total_nivel) * 100 ) | round(1) %}
+              <tr>
+                <td>
+                  <span class="chip">
+                    {{ nivel }}
+                  </span>
+                </td>
+                <td class="text-center">{{ cnt }}</td>
+                <td>
+                  <div class="d-flex align-items-center gap-2">
+                    <div class="progress flex-grow-1" style="height:8px;">
+                      <div class="progress-bar" style="width: {{ pct }}%"></div>
+                    </div>
+                    <span class="mini" style="min-width:52px; text-align:right;">{{ pct }}%</span>
+                  </div>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+          <div class="mini">Sin sanciones registradas por nivel en el rango.</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Resumen de sanciones -->
+  <div class="col-lg-6">
+    <div class="card card-soft shadow-soft">
+      <div class="p-3 border-bottom d-flex align-items-center gap-2">
+        <i class="bi bi-flag"></i><b>Resumen de sanciones</b>
+      </div>
+      <div class="p-3">
+        <ul class="list-unstyled mb-0">
+          <li class="d-flex justify-content-between py-1">
+            <span class="mini">Sanciones (7 días)</span>
+            <b>{{ datos.sanciones_semana|default(0) }}</b>
+          </li>
+          <li class="d-flex justify-content-between py-1">
+            <span class="mini">Sanciones pendientes</span>
+            <b>{{ datos.sanciones_pendientes|default(0) }}</b>
+          </li>
+          <li class="d-flex justify-content-between py-1">
+            <span class="mini">Empleados activos</span>
+            <b>{{ datos.total_usuarios|default(0) }}</b>
+          </li>
+          <li class="d-flex justify-content-between py-1">
+            <span class="mini">Empleados con sanción (%)</span>
+            <b>{{ datos.pct_users_sancionados|default(0) }}%</b>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- Observaciones -->
+  <div class="col-lg-6">
+    <div class="card card-soft shadow-soft">
+      <div class="p-3 border-bottom d-flex align-items-center gap-2">
+        <i class="bi bi-journal-check"></i><b>Observaciones</b>
+      </div>
+      <div class="p-3">
+        <ul class="mb-0">
+          <li class="mini">Si las <b>faltas de confirmación</b> son altas, revisa tolerancias y comunicación previa.</li>
+          <li class="mini">Un % alto en nivel <b>critical</b> sugiere reforzar supervisión.</li>
+          <li class="mini">Cruza estos datos con <a href="{{ url_for('admin_estadisticas') }}">Estadísticas del Sistema</a>.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}

@@ -1,0 +1,72 @@
+<div class="pill-card p-3">
+  <div class="d-flex justify-content-between align-items-center mb-2">
+    <div class="chip">Ajuste de horas trabajadas</div>
+    <div class="hint">Corrige horas totales de la tarea o por empleado. Las horas de turnos que cruzan medianoche se imputan al día de INICIO del turno.</div>
+  </div>
+
+  <!-- total tarea -->
+  <div class="pill-card p-3 mb-3">
+    <div class="d-flex align-items-center gap-2">
+      <div class="fw-semibold">Total de horas (tarea):</div>
+      <input type="number" min="0" step="0.25" class="form-control" style="max-width:140px" id="horasTotal" value="{{ horas_total or 0 }}">
+      <button class="btn btn-primary btn-sm" id="btnGuardarTotal">Guardar total</button>
+    </div>
+  </div>
+
+  <!-- por empleado -->
+  <div class="table-responsive">
+    <table class="table align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th>Empleado</th>
+          <th>Horas registradas</th>
+          <th>Horas nuevas</th>
+          <th class="text-end">Acción</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for fila in horas_empleados %}
+        <tr data-aid="{{ fila.asignacion_id }}">
+          <td class="fw-semibold">{{ fila.nombre }}</td>
+          <td>{{ '%.2f'|format(fila.horas_actuales|default(0)) }}</td>
+          <td style="max-width:160px"><input type="number" min="0" step="0.25" class="form-control horas-nuevas" value="{{ '%.2f'|format(fila.horas_actuales|default(0)) }}"></td>
+          <td class="text-end">
+            <button class="btn btn-outline-primary btn-sm btnGuardarEmpleado">Guardar</button>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+(function(){
+  const CSRF='{{ csrf_token() }}';
+  const tid={{ t.id }};
+
+  document.getElementById('btnGuardarTotal').addEventListener('click', async ()=>{
+    const val = document.getElementById('horasTotal').value || '0';
+    const fd = new FormData(); fd.append('horas_total', val);
+    const r = await fetch(`/admin/tarea/${tid}/horas/ajustar-total`, {
+      method:'POST', headers:{'X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'}, body: fd
+    });
+    const j = (r.headers.get('content-type')?.includes('application/json'))?await r.json():{ok:r.ok};
+    alert(j.ok?'Guardado':'No se pudo guardar');
+  });
+
+  document.querySelectorAll('.btnGuardarEmpleado').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const tr = btn.closest('tr');
+      const aid = tr.dataset.aid;
+      const val = tr.querySelector('.horas-nuevas').value || '0';
+      const fd = new FormData(); fd.append('horas', val);
+      const r = await fetch(`/admin/asignacion/${aid}/horas/ajustar`, {
+        method:'POST', headers:{'X-CSRFToken':CSRF,'X-Requested-With':'XMLHttpRequest'}, body: fd
+      });
+      const j = (r.headers.get('content-type')?.includes('application/json'))?await r.json():{ok:r.ok};
+      alert(j.ok?'Guardado':'No se pudo guardar');
+    });
+  });
+})();
+</script>

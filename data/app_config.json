@@ -1,0 +1,18 @@
+{
+  "brand_name": "Fresh's Labors",
+  "brand_logo": "",
+  "brand_footer": "© {{year}} Fresh's Labors. Todos los derechos reservados.",
+  "wa_sender": "",
+  "wa_prefix": "Hola, te comparto la información:",
+  "mail_from": "",
+  "otp_expiry_min": 10,
+  "otp_resend_sec": 30,
+  "otp_max_attempts": 7,
+  "otp_enabled": true,
+  "max_upload_mb": 30,
+  "max_colilla_mb": 20,
+  "dir_colillas": "uploads/colillas",
+  "dir_pagos": "uploads/pagos",
+  "table_page_size": 10,
+  "theme_default": "auto"
+}

@@ -1,0 +1,252 @@
+{% extends "admin/base.html" %}
+{% block title %}Detalle de Informes · {{ tarea.nombre }}{% endblock %}
+{% block content %}
+
+<style>
+:root {
+  --bg-soft: var(--bs-tertiary-bg);
+  --border-soft: var(--bs-border-color-translucent);
+  --card-soft: var(--bs-body-bg);
+}
+
+.sheet-informes {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 1rem;
+}
+@media (max-width: 992px) {
+  .sheet-informes {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* === Mini tutorial lateral === */
+.sidebar-tutorial {
+  background: var(--bg-soft);
+  border: 1px solid var(--border-soft);
+  border-radius: .75rem;
+  padding: 1rem;
+  height: fit-content;
+  position: sticky;
+  top: 80px;
+}
+
+.sidebar-tutorial h6 {
+  font-weight: 600;
+  font-size: .95rem;
+  margin-bottom: .75rem;
+  color: var(--bs-body-color);
+}
+
+.sidebar-tutorial ol {
+  padding-left: 1rem;
+  font-size: .85rem;
+  color: var(--bs-secondary-color);
+}
+
+.sidebar-tutorial li {
+  margin-bottom: .5rem;
+}
+
+/* === Tabla de actividad === */
+.table-actividad {
+  background: var(--card-soft);
+  border-radius: .75rem;
+  border: 1px solid var(--border-soft);
+  overflow: hidden;
+}
+
+.table-actividad thead {
+  background: var(--bg-soft);
+  font-size: .85rem;
+  font-weight: 600;
+}
+
+.table-actividad td, .table-actividad th {
+  vertical-align: middle;
+  padding: .5rem .75rem;
+}
+
+.badge-status {
+  font-size: .75rem;
+  font-weight: 500;
+  padding: .35rem .6rem;
+  border-radius: .5rem;
+}
+
+.badge-status.on_time { background: var(--bs-success-bg-subtle); color: var(--bs-success-text-emphasis); }
+.badge-status.late { background: var(--bs-warning-bg-subtle); color: var(--bs-warning-text-emphasis); }
+.badge-status.pending { background: var(--bs-secondary-bg-subtle); color: var(--bs-secondary-text-emphasis); }
+
+/* === Responsive === */
+@media (max-width: 768px) {
+  .sidebar-tutorial {
+    position: relative;
+    top: auto;
+  }
+}
+</style>
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <h4 class="mb-0"><i class="bi bi-clipboard-data"></i> Informes de {{ tarea.nombre }}</h4>
+  <a href="{{ url_for('admin_informes') }}" class="btn btn-sm btn-outline-secondary">
+    <i class="bi bi-arrow-left"></i> Volver
+  </a>
+</div>
+
+<div class="sheet-informes">
+  <!-- ===================== LATERAL (Mini tutorial) ===================== -->
+  <div class="sidebar-tutorial shadow-sm d-none d-lg-block">
+    <h6><i class="bi bi-info-circle"></i> Cómo leer los informes</h6>
+    <ol>
+      <li>Selecciona un <b>día activo</b> en el selector para ver su actividad.</li>
+      <li>Haz clic en una persona para ver sus <b>reportes individuales</b>.</li>
+      <li>Los colores indican el estado del reporte:
+        <span class="badge-status on_time">A tiempo</span>,
+        <span class="badge-status late">Tarde</span>,
+        <span class="badge-status pending">Pendiente</span>.
+      </li>
+      <li>Puedes hacer clic en las miniaturas de foto (📷) para abrirlas en tamaño completo.</li>
+    </ol>
+  </div>
+
+  <!-- ===================== PRINCIPAL ===================== -->
+  <div>
+    <!-- Tutorial plegable (solo móvil) -->
+    <div class="accordion d-lg-none mb-3" id="accordionTutorial">
+      <div class="accordion-item">
+        <h2 class="accordion-header" id="headingTut">
+          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#collapseTut" aria-expanded="false">
+            <i class="bi bi-info-circle me-2"></i> Cómo leer los informes
+          </button>
+        </h2>
+        <div id="collapseTut" class="accordion-collapse collapse" aria-labelledby="headingTut" data-bs-parent="#accordionTutorial">
+          <div class="accordion-body small">
+            <ol class="mb-0 ps-3">
+              <li>Selecciona un <b>día activo</b> en el selector para ver su actividad.</li>
+              <li>Haz clic en una persona para ver sus <b>reportes individuales</b>.</li>
+              <li>Los colores indican el estado del reporte:
+                <span class="badge-status on_time">A tiempo</span>,
+                <span class="badge-status late">Tarde</span>,
+                <span class="badge-status pending">Pendiente</span>.
+              </li>
+              <li>Puedes tocar las miniaturas de foto (📷) para verlas completas.</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fechas activas -->
+    <div class="card shadow-sm mb-3">
+      <div class="card-body">
+        <h6 class="fw-semibold mb-2"><i class="bi bi-calendar-range"></i> Fechas activas</h6>
+        <div id="daysContainer" class="d-flex flex-wrap gap-2"></div>
+      </div>
+    </div>
+
+    <!-- Tabla de actividad -->
+    <div class="table-actividad shadow-sm">
+      <table class="table table-hover mb-0" id="tablaActividad">
+        <thead>
+          <tr>
+            <th>Empleado</th>
+            <th>Reporte</th>
+            <th>Hora</th>
+            <th>Estado</th>
+            <th>Nota</th>
+            <th>Foto</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td colspan="6" class="text-center py-4 text-muted small">Selecciona una fecha para ver la actividad</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+document.addEventListener("DOMContentLoaded", async () => {
+  const tareaId = {{ tarea.id }};
+  const daysBox = document.getElementById("daysContainer");
+  const tableBody = document.querySelector("#tablaActividad tbody");
+
+  // === Cargar días activos ===
+  async function cargarDias() {
+    const res = await fetch(`/admin/informes/api/task/${tareaId}/days`);
+    const data = await res.json();
+    daysBox.innerHTML = "";
+    if (!data.days.length) {
+      daysBox.innerHTML = "<span class='text-muted small'>Sin días registrados.</span>";
+      return;
+    }
+    data.days.forEach(d => {
+      const btn = document.createElement("button");
+      btn.textContent = d;
+      btn.className = "btn btn-outline-danger btn-sm";
+      btn.onclick = () => cargarEmpleados(d);
+      daysBox.appendChild(btn);
+    });
+  }
+
+  // === Cargar empleados por día ===
+  async function cargarEmpleados(fecha) {
+    const res = await fetch(`/admin/informes/api/task/${tareaId}/day/${fecha}/people`);
+    const data = await res.json();
+    if (!data.people.length) {
+      tableBody.innerHTML = `<tr><td colspan='6' class='text-center text-muted small'>Sin empleados activos ese día.</td></tr>`;
+      return;
+    }
+    tableBody.innerHTML = "";
+    data.people.forEach(p => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td><b>${p.nombre}</b></td>
+        <td colspan="5">
+          <button class="btn btn-outline-primary btn-sm w-100">
+            Ver reportes (${p.completados}/${p.esperados})
+          </button>
+        </td>`;
+      tr.querySelector("button").onclick = () => cargarReportes(fecha, p.usuario_id, p.nombre);
+      tableBody.appendChild(tr);
+    });
+  }
+
+  // === Cargar reportes por persona ===
+  async function cargarReportes(fecha, uid, nombre) {
+    const res = await fetch(`/admin/informes/api/task/${tareaId}/day/${fecha}/person/${uid}/reports`);
+    const data = await res.json();
+    const informes = data.informes || [];
+
+    if (!informes.length) {
+      tableBody.innerHTML = `<tr><td colspan='6' class='text-center text-muted small'>${nombre}: sin reportes enviados.</td></tr>`;
+      return;
+    }
+
+    tableBody.innerHTML = "";
+    informes.forEach(rep => {
+      const tr = document.createElement("tr");
+      tr.innerHTML = `
+        <td>${nombre}</td>
+        <td>${rep.tipo}</td>
+        <td>${rep.hora || '--:--'}</td>
+        <td><span class="badge-status ${rep.estado}">${estadoLabel(rep.estado)}</span></td>
+        <td>${rep.nota || ''}</td>
+        <td>${rep.foto_url ? `<a href="${rep.foto_url}" target="_blank" class="text-danger"><i class="bi bi-camera"></i></a>` : ''}</td>
+      `;
+      tableBody.appendChild(tr);
+    });
+  }
+
+  function estadoLabel(est) {
+    if (est === "on_time") return "A tiempo";
+    if (est === "late") return "Tarde";
+    return "Pendiente";
+  }
+
+  cargarDias();
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,27 @@
+<form method="get" class="row gy-2 gx-2 align-items-end">
+  <div class="col-md-4">
+    <label class="form-label">Empleado</label>
+    <select name="usuario_id" class="form-select">
+      <option value="">Todos</option>
+      {% for u in usuarios %}
+      <option value="{{ u.id }}" {{ 'selected' if request.args.get('usuario_id')==u.id|string }}>{{ u.nombre }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-4">
+    <label class="form-label">Tarea</label>
+    <select name="tarea_id" class="form-select">
+      <option value="">Todas</option>
+      {% for t in tareas %}
+      <option value="{{ t.id }}" {{ 'selected' if request.args.get('tarea_id')==t.id|string }}>{{ t.nombre }}</option>
+      {% endfor %}
+    </select>
+  </div>
+  <div class="col-md-3">
+    <label class="form-label">Fecha (día)</label>
+    <input type="date" name="fecha" value="{{ request.args.get('fecha','') }}" class="form-control">
+  </div>
+  <div class="col-md-1">
+    <button class="btn btn-primary w-100">Buscar</button>
+  </div>
+</form>

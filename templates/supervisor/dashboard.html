@@ -1,0 +1,86 @@
+{% extends "supervisor/base.html" %}
+{% block title %}Dashboard · Supervisor{% endblock %}
+{% block content %}
+
+<!-- KPIs -->
+<div class="row g-3 mb-3">
+  <div class="col-12 col-md-4">
+    <div class="sv-card p-3 h-100">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <div class="text-muted small">Empleados activos</div>
+          <div class="display-6 fw-bold">{{ kpis.empleados_activos }}</div>
+        </div>
+        <div class="rounded-circle d-flex align-items-center justify-content-center"
+             style="width:44px;height:44px;background:rgba(249,207,67,.18);border:1px solid rgba(249,207,67,.45);">
+          <i class="bi bi-people-fill" style="font-size:1.2rem;color:#f9cf43"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-md-4">
+    <div class="sv-card p-3 h-100">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <div class="text-muted small">Tareas activas</div>
+          <div class="display-6 fw-bold">{{ kpis.tareas_activas }}</div>
+        </div>
+        <div class="rounded-circle d-flex align-items-center justify-content-center"
+             style="width:44px;height:44px;background:rgba(90,178,255,.15);border:1px solid rgba(90,178,255,.4);">
+          <i class="bi bi-kanban" style="font-size:1.2rem;color:#5ab2ff"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-12 col-md-4">
+    <div class="sv-card p-3 h-100">
+      <div class="d-flex align-items-center justify-content-between">
+        <div>
+          <div class="text-muted small">Empleados inactivos</div>
+          <div class="display-6 fw-bold">{{ kpis.empleados_inactivos }}</div>
+        </div>
+        <div class="rounded-circle d-flex align-items-center justify-content-center"
+             style="width:44px;height:44px;background:rgba(255,99,71,.15);border:1px solid rgba(255,99,71,.35);">
+          <i class="bi bi-person-x-fill" style="font-size:1.2rem;color:#ff6b6b"></i>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- (Tu bloque existente de tarjetas de tareas activas) -->
+<div class="sv-card p-3 mb-3">
+  <div class="d-flex align-items-center justify-content-between">
+    <h5 class="mb-0">Tareas activas</h5>
+    <a class="btn btn-sm sv-btn" href="{{ url_for('supervisor_tareas', estado='activa') }}">
+      <i class="bi bi-kanban"></i> Ver todas
+    </a>
+  </div>
+</div>
+
+<div class="row g-3">
+  {% for t in tareas %}
+  <div class="col-12 col-md-6 col-xl-4">
+    <div class="sv-card p-3 h-100">
+      <div class="d-flex justify-content-between align-items-start">
+        <div>
+          <div class="fw-semibold">{{ t.nombre }}</div>
+          <div class="text-muted small">{{ t.ubicacion or '—' }}</div>
+        </div>
+        <span class="badge text-bg-success">Activa</span>
+      </div>
+      <div class="mt-3">
+        <a href="{{ url_for('supervisor_tareas', estado='activa') }}" class="btn btn-sm sv-btn">
+          <i class="bi bi-arrow-right"></i> Ir a Tareas
+        </a>
+      </div>
+    </div>
+  </div>
+  {% else %}
+  <div class="col-12"><p class="text-muted mb-0">No hay tareas activas.</p></div>
+  {% endfor %}
+</div>
+
+{% endblock %}

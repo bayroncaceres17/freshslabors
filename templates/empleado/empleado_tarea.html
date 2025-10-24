@@ -1,0 +1,548 @@
+{% extends "empleado/base_empleado.html" %}
+{% block title %}Reportes y asistencia{% endblock %}
+
+{% block styles %}
+<style>
+  :root{
+    --ink:var(--bs-body-color); --muted:var(--bs-secondary-color);
+    --card-bg:var(--bs-tertiary-bg); --card-bd:var(--bs-border-color-translucent);
+    --soft:color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 40%);
+    --hover:color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 25%);
+    --ok:#10b981; --danger:#ef4444; --warn:#f59e0b;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --card-bg:#0b1324; --card-bd:rgba(255,255,255,.08); --soft:#0f1a33; --hover:#0e1730; }
+  }
+  .card{background:var(--card-bg);border:1px solid var(--card-bd);border-radius:14px;}
+  .t-sub{color:var(--muted);font-size:.92rem}
+  .btn-ghost{background:transparent;border:1px solid var(--card-bd)}
+  .btn-ghost:hover{background:var(--soft)}
+  .gps-ok{color:var(--ok);font-weight:600}
+  .gps-warn{color:var(--warn);font-weight:600}
+  .gps-bad{color:var(--danger);font-weight:600}
+  .clock{font-variant-numeric:tabular-nums;font-weight:700}
+  .tutorial-card{background:var(--card-bg);border:1px solid var(--card-bd);border-radius:14px;}
+  .tutorial-card ol{padding-left:1.1rem;}
+  .tutorial-card li{margin:.45rem 0;}
+  @media(min-width:992px){.tutorial-sticky{position:sticky;top:84px;}}
+  .tutorial-mobile summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-weight:600;}
+  .tutorial-mobile summary::-webkit-details-marker{display:none;}
+  .tutorial-mobile details{border:1px solid var(--card-bd);border-radius:14px;background:var(--soft);padding:10px 12px;}
+  .emerg-top-mobile{border:1px solid var(--card-bd);border-radius:14px;background:var(--soft);}
+  .sidebar-card{background:var(--card-bg);border:1px solid var(--card-bd);border-radius:14px;}
+</style>
+{% endblock %}
+
+{% block emp_content %}
+<div class="container-fluid py-3"
+     data-asistencia-done="{{ '1' if asistencia.done else '0' }}">
+  <div class="row g-3">
+
+    <!-- ===== LATERAL (IZQ) ===== -->
+    <aside class="col-12 col-lg-4 order-0 order-lg-0">
+      {% if show_emerg_btn %}
+      <div class="emerg-top-mobile d-lg-none p-3 mb-3">
+        <div class="d-flex align-items-center justify-content-between">
+          <div>
+            <div class="fw-semibold"><i class="bi bi-lightning-charge text-danger"></i> Salir a emergencia</div>
+            <div class="t-sub">Cierra esta tarea y marca faltantes como “emergencia”.</div>
+          </div>
+          <button id="btnEmergenciaTop" class="btn btn-danger btn-sm">
+            <i class="bi bi-exclamation-octagon"></i> Ir
+          </button>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="tutorial-mobile d-lg-none mb-3">
+        <details>
+          <summary><i class="bi bi-mortarboard text-warning"></i> ¿Cómo funciona?</summary>
+          <ol class="ps-3 mt-2 small">
+            <li><b>Asistencia:</b> sube pantallazo de GPS. Ventana <b>−3 h</b> a <b>+30 min</b> (fuera cuenta como <b>tarde</b>).</li>
+            <li><b>Reportes programados:</b> puedes enviarlos a cualquier hora; si te pasas, se marca <b>tarde</b>.</li>
+            <li><b>Lunch:</b> Sí (con foto) o No (sin foto) tras asistencia.</li>
+          </ol>
+          <div class="t-sub mt-2"><i class="bi bi-globe-americas"></i> TZ: <b>{{ t.tz_name or 'America/New_York' }}</b></div>
+        </details>
+      </div>
+
+      <div class="tutorial-card tutorial-sticky p-3 d-none d-lg-block">
+        <div class="d-flex align-items-center gap-2 mb-2">
+          <i class="bi bi-mortarboard fs-5 text-warning"></i>
+          <h6 class="mb-0">Cómo funciona</h6>
+        </div>
+        <ol class="ps-3">
+          <li>Asistencia con pantallazo del GPS (−3 h a +30 min; fuera = tarde).</li>
+          <li>Reportes programados: se pueden enviar siempre; el horario solo marca retraso.</li>
+          <li>GPS requerido en reportes programados.</li>
+        </ol>
+        <div class="t-sub mt-2"><i class="bi bi-globe-americas"></i> TZ: {{ t.tz_name or 'America/New_York' }}</div>
+
+        {% if show_emerg_btn %}
+        <hr>
+        <div class="sidebar-card p-2">
+          <div class="d-flex align-items-center justify-content-between">
+            <div class="fw-semibold"><i class="bi bi-lightning-charge text-danger"></i> Salir a emergencia</div>
+            <button id="btnEmergenciaSide" class="btn btn-danger btn-sm">
+              <i class="bi bi-exclamation-octagon"></i> Ir
+            </button>
+          </div>
+          <div class="mt-2">
+            <label class="form-label small mb-1">Emergencia destino</label>
+            <select class="form-select form-select-sm" id="selectEmergenciaSidebar">
+              <option value="">— Selecciona —</option>
+              {% for te in emerg_tareas or [] %}
+                {% set pr = (te.prioridad or te.tipo or te.categoria or te.nivel or '')|string|lower %}
+                {% set tp = (te.tipo or '')|string|lower %}
+                <option value="{{ te.id }}" data-prioridad="{{ pr }}" data-tipo="{{ tp }}">{{ te.nombre }}</option>
+              {% endfor %}
+            </select>
+            <div class="t-sub mt-1">Se cerrará tu jornada y los faltantes quedarán como “emergencia”.</div>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </aside>
+
+    <!-- ===== CONTENIDO PRINCIPAL ===== -->
+    <div class="col-12 col-lg-8 order-1 order-lg-1">
+
+      {% if todo_completo_hoy %}
+      <div class="alert alert-success d-flex align-items-center" role="alert">
+        <i class="bi bi-check2-circle me-2"></i> Informes completados por hoy. ¡Buen trabajo!
+      </div>
+      {% endif %}
+
+      <div id="insecureWarning" class="alert alert-warning d-none">
+        <i class="bi bi-exclamation-triangle me-1"></i>
+        Para usar GPS, abre el sitio con <b>HTTPS</b> o como <b>http://localhost</b>/<b>127.0.0.1</b>.
+      </div>
+
+      <!-- INFO + RELOJ + GPS -->
+      <div class="card p-3 mb-2">
+        <div class="d-flex flex-column flex-md-row justify-content-between gap-2">
+          <div>
+            <h5 class="mb-1">{{ t.nombre }}</h5>
+            <div class="t-sub"><i class="bi bi-flag me-1"></i><b>Prioridad:</b> {{ (t.prioridad or '—') }}</div>
+            <div class="t-sub"><i class="bi bi-geo-alt me-1"></i><b>Ubicación:</b> {{ t.ubicacion or "Sin ubicación" }}</div>
+            <div class="t-sub">
+              <i class="bi bi-calendar2 me-1"></i><b>Fecha:</b> {{ t.fecha_inicio or "—" }}
+              · <i class="bi bi-clock-history me-1"></i><b>Inicio:</b> {{ t.hora_inicio or "—" }}
+            </div>
+            {% if asign.turno_num %}<div class="t-sub"><i class="bi bi-arrow-repeat me-1"></i><b>Turno:</b> {{ asign.turno_num }}</div>{% endif %}
+            {% if asign.hora_inicio_override %}<div class="t-sub"><i class="bi bi-person-walking me-1"></i><b>Entrada asignada:</b> {{ asign.hora_inicio_override }}</div>{% endif %}
+          </div>
+          <div class="text-md-end">
+            <div class="t-sub mb-1"><i class="bi bi-phone"></i> Hora local del teléfono (24h):</div>
+            <div class="clock h4 mb-2" id="clockLocal">--:--:--</div>
+            <div class="t-sub"><i class="bi bi-globe"></i> {{ t.tz_name or 'America/New_York' }}: <b id="clockTaskTZ">--:--:--</b></div>
+            <div class="d-flex flex-wrap gap-2 align-items-center mt-2">
+              <button id="btnGPS" class="btn btn-ghost btn-sm"><i class="bi bi-geo-fill me-1"></i> Permitir ubicación</button>
+              <span id="gpsStatus" class="t-sub">Sin ubicación todavía</span>
+            </div>
+            <div class="t-sub mt-1" id="gpsCoord" style="display:none;"></div>
+            <div class="small text-muted mt-1">Presiona <b>Permitir ubicación</b> antes de enviar.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ASISTENCIA -->
+      <div class="card mb-3">
+        <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-person-check me-1"></i>Asistencia (entrada)</span>
+          <span class="badge
+            {% if asistencia.done %} bg-success
+            {% elif asistencia.tarde %} bg-danger
+            {% elif asistencia.too_early %} bg-secondary
+            {% elif asistencia.enabled %} bg-primary
+            {% else %} bg-light text-dark {% endif %}">
+            {% if asistencia.done %}Registrada{% elif asistencia.tarde %}Tarde{% elif asistencia.too_early %}Temprano{% elif asistencia.enabled %}Disponible{% else %}Fuera de franja{% endif %}
+          </span>
+        </div>
+        <div class="card-body">
+          {% if asistencia.done %}
+            <div class="text-success">✅ Ya registraste tu asistencia.</div>
+            {% if asistencia.confirmed_at %}<div class="t-sub mt-1"><i class="bi bi-clock"></i> Confirmada: {{ asistencia.confirmed_at }}</div>{% endif %}
+          {% else %}
+            {% if asistencia.tarde and asistencia.late_minutes is defined %}
+              <div class="alert alert-danger py-2 mb-3"><i class="bi bi-alarm"></i> Estás <b>{{ asistencia.late_minutes }}</b> min tarde.</div>
+            {% elif asistencia.enabled %}
+              <div class="alert alert-primary py-2 mb-3"><i class="bi bi-info-circle"></i> Dentro de la ventana: a tiempo si envías ahora.</div>
+            {% elif asistencia.too_early %}
+              <div class="alert alert-secondary py-2 mb-3"><i class="bi bi-hourglass-split"></i> Aún es temprano; puedes enviarla (quedará “temprano”).</div>
+            {% else %}
+              <div class="alert alert-warning py-2 mb-3"><i class="bi bi-exclamation-triangle"></i> Fuera de la ventana; puedes enviarla (quedará “tarde”).</div>
+            {% endif %}
+
+            <form id="form-asistencia" action="{{ url_for('api_empleado_reporte_asistencia') }}"
+                  method="post" enctype="multipart/form-data" class="row g-2">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="tarea_id" value="{{ t.id }}">
+              <input type="hidden" name="lat" id="lat-asistencia">
+              <input type="hidden" name="lng" id="lng-asistencia">
+              <input type="hidden" name="gps_status" id="gps-status-asistencia" value="not_activated">
+              <input type="hidden" name="device_ts" id="device-ts-asistencia">
+
+              <div class="col-12">
+                <label class="form-label small">Pantallazo del GPS (obligatorio)</label>
+                <input class="form-control" type="file" id="foto-asistencia" name="foto" accept="image/*" required>
+                <div class="form-text">Sube un <b>pantallazo</b> de tu app de mapas mostrando tu ubicación.</div>
+              </div>
+
+              <div class="col-12">
+                <div class="form-check mt-1">
+                  <input class="form-check-input" type="checkbox" name="es_pantallazo_gps" id="chkPantallazo" required>
+                  <label class="form-check-label small" for="chkPantallazo">Confirmo que la imagen es un pantallazo del GPS.</label>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-6 d-grid">
+                <button id="btnEnviarAsistencia" class="btn btn-primary">Marcar asistencia</button>
+              </div>
+              <div class="col-12 col-md-6">
+                <div class="t-sub"><i class="bi bi-shield-check"></i> Sin GPS se registrará <b>“ubicación no activada”</b>.</div>
+              </div>
+            </form>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- LUNCH -->
+      <div class="card mb-3">
+        <div class="card-header fw-semibold d-flex justify-content-between align-items-center">
+          <span><i class="bi bi-cup-hot me-1"></i>Lunch</span>
+          <span class="badge {% if lunch.done %}bg-success{% elif lunch.enabled %}bg-primary{% else %}bg-light text-dark{% endif %}">
+            {% if lunch.done %}Registrado{% elif lunch.enabled %}Disponible{% else %}No disponible{% endif %}
+          </span>
+        </div>
+        <div class="card-body">
+          {% if lunch.done %}
+            <div class="text-success">✅ Lunch registrado.</div>
+          {% elif lunch.enabled %}
+            <form id="form-lunch" action="{{ url_for('api_empleado_reporte_lunch') }}"
+                  method="post" enctype="multipart/form-data" class="row g-2">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <input type="hidden" name="tarea_id" value="{{ t.id }}">
+              <input type="hidden" name="lat" id="lat-lunch">
+              <input type="hidden" name="lng" id="lng-lunch">
+              <input type="hidden" name="device_ts" id="device-ts-lunch">
+
+              <div class="col-12">
+                <label class="form-label d-block small mb-1">¿Tomaste lunch?</label>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="radio" name="opcion" id="lunch_si" value="si" checked>
+                  <label class="form-check-label" for="lunch_si">Sí (con foto)</label>
+                </div>
+                <div class="form-check form-check-inline">
+                  <input class="form-check-input" type="radio" name="opcion" id="lunch_no" value="no">
+                  <label class="form-check-label" for="lunch_no">No</label>
+                </div>
+              </div>
+
+              <div class="col-12 col-md-6" id="lunch_foto_wrap">
+                <label class="form-label small">Foto</label>
+                <input class="form-control" type="file" name="foto" accept="image/*" required>
+              </div>
+              <div class="col-12 col-md-6 d-grid">
+                <label class="form-label small d-none d-md-block">&nbsp;</label>
+                <button class="btn btn-outline-primary">Registrar lunch</button>
+              </div>
+            </form>
+          {% else %}
+            <div class="text-muted small">Se habilita tras marcar tu asistencia.</div>
+          {% endif %}
+        </div>
+      </div>
+
+      <!-- REPORTES PROGRAMADOS -->
+      <div class="card mb-4">
+        <div class="card-header fw-semibold">
+          <i class="bi bi-journal-text me-1"></i>Reportes programados
+        </div>
+        <div class="list-group list-group-flush">
+          {% for v in ventanas %}
+          <div class="list-group-item">
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <div class="fw-semibold">{{ v.nombre }}</div>
+                <div class="text-muted small">
+                  {% if v.ini and v.fin %}{{ v.ini }} – {{ v.fin }}{% else %}(Sin horario fijo){% endif %}
+                </div>
+              </div>
+              <div>
+                <span class="badge
+                  {% if v.done %} bg-success
+                  {% elif v.tarde %} bg-danger
+                  {% elif v.too_early %} bg-secondary
+                  {% elif v.enabled %} bg-primary
+                  {% else %} bg-light text-dark {% endif %}">
+                  {% if v.done %}Enviado{% elif v.tarde %}Tarde{% elif v.too_early %}Temprano{% elif v.enabled %}Disponible{% else %}Fuera de franja{% endif %}
+                </span>
+              </div>
+            </div>
+
+            {% if not v.done %}
+              <form action="{{ url_for('api_empleado_reporte_ventana') }}"
+                    method="post" enctype="multipart/form-data" class="row g-2 mt-2 ventana-form">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <input type="hidden" name="tarea_id" value="{{ t.id }}">
+                <input type="hidden" name="orden" value="{{ v.orden }}">
+                <input type="hidden" name="ventana_id" value="{{ v.id }}">
+                <input type="hidden" name="gps" class="gps-hidden">
+                <input type="hidden" name="device_ts" class="device-ts-hidden">
+
+                <div class="col-12 col-md-6">
+                  <label class="form-label small">Foto (obligatoria)</label>
+                  <input class="form-control" type="file" name="foto" accept="image/*" required>
+                  {% if v.tarde %}<div class="form-text text-danger">Se marcará tarde.</div>{% endif %}
+                  {% if v.too_early %}<div class="form-text text-muted">Se marcará temprano.</div>{% endif %}
+                </div>
+                <div class="col-12 col-md-6 d-grid">
+                  <label class="form-label small d-none d-md-block">&nbsp;</label>
+                  <button class="btn btn-success ventana-submit">Enviar reporte</button>
+                </div>
+              </form>
+            {% endif %}
+          </div>
+          {% else %}
+          <div class="list-group-item text-muted small">No hay ventanas configuradas.</div>
+          {% endfor %}
+        </div>
+        <div class="card-footer small text-end text-muted">
+          Enviados hoy: {{ enviados_hoy|int }}
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+{% if show_emerg_btn %}
+<form id="form-emergencia" action="{{ url_for('api_empleado_salida_emergencia') }}" method="post" class="d-none">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="tarea_id" value="{{ t.id }}">
+  <input type="hidden" name="gps" id="gps-emergencia">
+  <input type="hidden" name="device_ts" id="device-ts-emergencia">
+  <input type="hidden" name="tarea_emerg_destino_id" id="tarea-emerg-destino-id">
+  <input type="hidden" name="confirm_step" id="confirm-step" value="">
+</form>
+
+<div class="modal fade" id="modalEmergencia" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content" style="border-radius:14px;">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="bi bi-exclamation-triangle text-danger"></i> Confirmar emergencia</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <label class="form-label">Tarea de emergencia destino</label>
+        <select class="form-select" id="selectEmergenciaModal">
+          <option value="">— Selecciona —</option>
+          {% for te in emerg_tareas or [] %}
+            {% set pr = (te.prioridad or te.tipo or te.categoria or te.nivel or '')|string|lower %}
+            {% set tp = (te.tipo or '')|string|lower %}
+            <option value="{{ te.id }}" data-prioridad="{{ pr }}" data-tipo="{{ tp }}">{{ te.nombre }}</option>
+          {% endfor %}
+        </select>
+        <div class="alert alert-warning mt-3 small">Al confirmar se registrará tu <b>hora de salida</b> y los reportes faltantes como <b>“emergencia”</b>.</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <button id="btnEmergConfirm2" class="btn btn-danger" disabled>Confirmar</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  // Relojes
+  const clockLocal = document.getElementById('clockLocal');
+  const clockTask  = document.getElementById('clockTaskTZ');
+  const TASK_TZ    = {{ (t.tz_name or 'America/New_York')|tojson }};
+  function tickClock(){
+    const now = new Date();
+    try{
+      clockLocal.textContent = now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false});
+      const fmt = new Intl.DateTimeFormat([], {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false, timeZone:TASK_TZ});
+      clockTask.textContent = fmt.format(now);
+      const tsISO = now.toISOString();
+      ['device-ts-asistencia','device-ts-lunch','device-ts-emergencia'].forEach(id=>{
+        const el = document.getElementById(id); if (el) el.value = tsISO;
+      });
+      document.querySelectorAll('.device-ts-hidden').forEach(i=>i.value = tsISO);
+    }catch(e){}
+  }
+  tickClock(); setInterval(tickClock, 1000);
+
+  // Aviso HTTP
+  (function(){
+    const warn = document.getElementById('insecureWarning');
+    const hostOk = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+    if (location.protocol !== 'https:' && !hostOk) warn?.classList.remove('d-none');
+  })();
+
+  // GPS
+  const btnGPS = document.getElementById('btnGPS');
+  const gpsStatusEl = document.getElementById('gpsStatus');
+  const gpsCoordEl  = document.getElementById('gpsCoord');
+  let gpsAlertShown = false;
+
+  function setGPS(lat,lng,acc){
+    const la=document.getElementById('lat-asistencia'); const lo=document.getElementById('lng-asistencia');
+    if(la&&lo){ la.value=lat; lo.value=lng; }
+    const llA=document.getElementById('lat-lunch'); if(llA) llA.value=lat;
+    const llO=document.getElementById('lng-lunch'); if(llO) llO.value=lng;
+    const val=Number(lat).toFixed(6)+','+Number(lng).toFixed(6);
+    document.querySelectorAll('.gps-hidden').forEach(i=>i.value=val);
+    const gpe=document.getElementById('gps-emergencia'); if(gpe) gpe.value=val;
+
+    if(gpsStatusEl){ gpsStatusEl.textContent=`Ubicación lista (±${Math.round(acc)}m)`; gpsStatusEl.className='t-sub gps-ok'; }
+    if(gpsCoordEl){ gpsCoordEl.textContent=val; gpsCoordEl.style.display='block'; }
+    const st=document.getElementById('gps-status-asistencia'); if(st) st.value='ok';
+  }
+  function onGPSError(err){
+    let msg='Ubicación no activada — se registrará sin GPS.';
+    if(err && err.code===2) msg='Ubicación no disponible — se registrará sin GPS.';
+    if(err && err.code===3) msg='Tiempo agotado — se registrará sin GPS.';
+    if(gpsStatusEl){ gpsStatusEl.textContent=msg; gpsStatusEl.className='t-sub gps-bad'; }
+    if(gpsCoordEl) gpsCoordEl.style.display='none';
+    const st=document.getElementById('gps-status-asistencia'); if(st) st.value=(err&&err.code===1)?'denied':'not_activated';
+    if(!gpsAlertShown){ gpsAlertShown=true; alert('Activa la ubicación en el navegador/sistema. Puedes continuar sin GPS.'); }
+  }
+  function requestGPSOnce(){
+    if(!('geolocation' in navigator)){
+      if(gpsStatusEl){ gpsStatusEl.textContent='Este navegador no soporta geolocalización — se registrará sin GPS.'; gpsStatusEl.className='t-sub gps-bad'; }
+      const st=document.getElementById('gps-status-asistencia'); if(st) st.value='unsupported';
+      return;
+    }
+    if(gpsStatusEl){ gpsStatusEl.textContent='Obteniendo ubicación…'; gpsStatusEl.className='t-sub gps-warn'; }
+    navigator.geolocation.getCurrentPosition(
+      pos=>setGPS(pos.coords.latitude,pos.coords.longitude,pos.coords.accuracy),
+      onGPSError,
+      {enableHighAccuracy:true, timeout:12000, maximumAge:0}
+    );
+    try{
+      const id=navigator.geolocation.watchPosition(
+        pos=>setGPS(pos.coords.latitude,pos.coords.longitude,pos.coords.accuracy),
+        ()=>{},
+        {enableHighAccuracy:true, maximumAge:5000}
+      );
+      setTimeout(()=>{ try{navigator.geolocation.clearWatch(id);}catch(e){} },20000);
+    }catch(e){}
+  }
+  document.getElementById('btnGPS')?.addEventListener('click', requestGPSOnce);
+
+  // Habilitar envío de asistencia (foto + check)
+  const fotoAsis=document.getElementById('foto-asistencia');
+  const btnAsis=document.getElementById('btnEnviarAsistencia');
+  const chkPant=document.getElementById('chkPantallazo');
+  function maybeEnableAssist(){
+    if(!btnAsis) return;
+    const hasPhoto=!!(fotoAsis?.files?.length);
+    const pantOK=!!(chkPant?.checked);
+    btnAsis.disabled=!(hasPhoto && pantOK);
+  }
+  fotoAsis?.addEventListener('change', maybeEnableAssist);
+  chkPant?.addEventListener('change', maybeEnableAssist);
+  maybeEnableAssist();
+
+  // Lunch: alterna foto según opción
+  const si=document.getElementById('lunch_si'), no=document.getElementById('lunch_no'), wrap=document.getElementById('lunch_foto_wrap');
+  function toggleLunch(){
+    if(!si||!no||!wrap) return;
+    wrap.style.display=si.checked?'':'none';
+    const input=wrap.querySelector('input[type=file]');
+    if(input){ input.required=si.checked; if(!si.checked){input.value='';} }
+  }
+  if(si&&no){ si.addEventListener('change',toggleLunch); no.addEventListener('change',toggleLunch); toggleLunch(); }
+
+  // Gating por asistencia: solo bloquea reportes/lunch si no hay asistencia (ligera o completa)
+  const asistenciaDone = document.querySelector('[data-asistencia-done]')?.getAttribute('data-asistencia-done') === '1';
+  if(!asistenciaDone){
+    document.querySelectorAll('.ventana-submit').forEach(b=>{ b.disabled=true; b.title='Primero registra tu asistencia.'; });
+    const lunchBtn=document.querySelector('#form-lunch button[type=submit], #form-lunch .btn');
+    if(lunchBtn){ lunchBtn.disabled=true; lunchBtn.title='Primero registra tu asistencia.'; }
+  }
+
+  // Emergencia (si aplica)
+  {% if show_emerg_btn %}
+  const modalEl=document.getElementById('modalEmergencia');
+  let bsModal=null; if(modalEl && window.bootstrap) bsModal=new bootstrap.Modal(modalEl);
+  const formEmerg=document.getElementById('form-emergencia');
+  const confirmStep=document.getElementById('confirm-step');
+  const selectModal=document.getElementById('selectEmergenciaModal');
+  const btnConfirmEmerg=document.getElementById('btnEmergConfirm2');
+  const selectSide=document.getElementById('selectEmergenciaSidebar');
+
+  function filterSelectToEmerg(sel){
+    if(!sel) return;
+    const opts=Array.from(sel.options).slice(1);
+    let kept=0;
+    opts.forEach(opt=>{
+      const pr=(opt.getAttribute('data-prioridad')||'').toLowerCase();
+      const tp=(opt.getAttribute('data-tipo')||'').toLowerCase();
+      const hasSignal=!!(pr||tp);
+      const isEmerg=(pr==='emergencia'||tp==='emergencia'||pr==='emergency'||tp==='emergency');
+      if(hasSignal && !isEmerg){ opt.remove(); } else { kept++; }
+    });
+    if(kept===0) sel.selectedIndex=0;
+  }
+  filterSelectToEmerg(selectSide); filterSelectToEmerg(selectModal);
+
+  function ensureEmergOptionsLoaded(){
+    const hasData=(selectSide && selectSide.options.length>1)||(selectModal && selectModal.options.length>1);
+    if(hasData) return;
+    fetch("{{ url_for('api_empleado_listar_emergencias') }}?only=emergencia")
+      .then(r=>r.json()).then(j=>{
+        if(!j.ok || !Array.isArray(j.emergencias)) return;
+        const src=j.emergencias.map(e=>({id:String(e.id),nombre:String(e.nombre),
+          prioridad:((e.prioridad||e.tipo||e.categoria||e.nivel||'')+'').toLowerCase(),
+          tipo:((e.tipo||'')+'').toLowerCase()}));
+        [selectSide,selectModal].forEach(sel=>{
+          if(!sel) return; sel.length=1;
+          src.forEach(o=>{
+            const opt=document.createElement('option');
+            opt.value=o.id; opt.textContent=o.nombre;
+            opt.setAttribute('data-prioridad',o.prioridad); opt.setAttribute('data-tipo',o.tipo);
+            sel.appendChild(opt);
+          });
+          filterSelectToEmerg(sel);
+        });
+      }).catch(()=>{});
+  }
+
+  function openEmergFlow(){
+    ensureEmergOptionsLoaded();
+    const ok=confirm('¿Confirmas que vas a salir a una emergencia ahora?'); if(!ok) return;
+    requestGPSOnce(); if(bsModal){ bsModal.show(); }
+  }
+  document.getElementById('btnEmergenciaTop')?.addEventListener('click', openEmergFlow);
+  document.getElementById('btnEmergenciaSide')?.addEventListener('click', openEmergFlow);
+
+  function getSelectedEmergId(){
+    if(selectModal && (modalEl?.classList.contains('show') || document.body.classList.contains('modal-open'))) return (selectModal.value||'').trim();
+    if(selectSide) return (selectSide.value||'').trim();
+    return '';
+  }
+  function refreshConfirmEnabled(){ const selId=getSelectedEmergId(); if(btnConfirmEmerg) btnConfirmEmerg.disabled=!(selId.length>0); }
+  selectModal?.addEventListener('change', refreshConfirmEnabled);
+  selectSide?.addEventListener('change', refreshConfirmEnabled);
+  refreshConfirmEnabled();
+
+  document.getElementById('btnEmergConfirm2')?.addEventListener('click', (e)=>{
+    e.preventDefault();
+    const selId=getSelectedEmergId(); if(!selId) return;
+    const really=confirm('Se registrará tu salida ahora y los reportes faltantes como emergencia. ¿Continuar?');
+    if(!really) return;
+    const dest=document.getElementById('tarea-emerg-destino-id'); if(dest) dest.value=selId;
+    if(confirmStep) confirmStep.value='2';
+    formEmerg?.submit();
+  });
+  {% endif %}
+})();
+</script>
+{% endblock %}

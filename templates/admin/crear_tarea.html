@@ -1,0 +1,610 @@
+{# templates/crear_tarea.html #}
+{% extends "admin/base.html" %}
+{% block title %}Crear Tarea · Fresh's Labors{% endblock %}
+{% block styles %}
+<style>
+  /* === Scope para esta vista === */
+  .crear .sheet {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 20px;
+  }
+  @media (max-width: 991.98px){
+    .crear .sheet { grid-template-columns: 1fr; }
+  }
+
+  .crear .pill-card{
+    background: var(--bs-body-bg);
+    border: 1px solid var(--bs-border-color);
+    border-radius: 14px;
+    box-shadow: 0 8px 18px rgba(0,0,0,.06);
+  }
+
+  .crear .section-title{ font-weight:800; letter-spacing:.2px; color: var(--bs-body-color); }
+  .crear .hint{ font-size:.85rem; color: var(--bs-secondary-color); }
+
+  /* Chip neutra */
+  .crear .chip{
+    display:inline-flex; align-items:center; gap:.45rem;
+    padding:.25rem .55rem; border-radius:999px; font-weight:600; font-size:.8rem;
+    background: color-mix(in oklab, var(--bs-primary), transparent 90%);
+    color: var(--bs-primary);
+    border: 1px solid color-mix(in oklab, var(--bs-primary), var(--bs-border-color) 70%);
+  }
+
+  .crear .badge-dot{ display:inline-flex; align-items:center; gap:.4rem; }
+  .crear .badge-dot .dot{ width:.5rem; height:.5rem; border-radius:999px; display:inline-block; background: var(--bs-primary); }
+  .crear .border-accent{ border-left:4px solid var(--bs-primary); }
+
+  .crear .subtle{
+    background: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 35%);
+    border:1px dashed var(--bs-border-color);
+    border-radius:12px; padding:.8rem;
+  }
+  .crear .group-title{ font-weight:700; color: var(--bs-body-color); font-size:.95rem; margin-bottom:.4rem; }
+  .crear .mini{ font-size:.8rem; }
+
+  /* Sticky lateral solo en ≥lg */
+  @media (min-width: 992px){
+    .crear .sticky-side{ position: sticky; top: 90px; }
+  }
+
+  /* Inputs “time” más cómodos en móvil */
+  .crear .time-lg { height: 2.8rem; font-size: 1rem; }
+  .crear .input-group-text.time-lg { font-size: .95rem; }
+
+  /* Focus neutro */
+  .crear .form-control:focus, .crear .form-select:focus {
+    border-color: var(--bs-primary);
+    box-shadow: 0 0 0 .15rem color-mix(in oklab, var(--bs-primary), transparent 80%);
+  }
+
+  /* Botonera final responsiva */
+  .crear .actions {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: .6rem;
+  }
+  @media (min-width: 576px){
+    .crear .actions { grid-template-columns: auto auto; }
+  }
+
+  /* Grid para “reportes” y “turnos” */
+  .crear #indicaciones-wrap > .col,
+  .crear #turnos_wrap > .col { display: flex; }
+  .crear #indicaciones-wrap .pill-card,
+  .crear #turnos_wrap .pill-card { width: 100%; }
+
+  /* Select prioridad sin emojis (serio) */
+  .crear .prio-opt { display:flex; align-items:center; gap:.5rem; }
+  .crear .prio-opt i { opacity: .9; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="crear">  {# <-- ENVOLTORIO QUE FALTABA #}
+  <div class="sheet">
+    <!-- FORMULARIO -->
+    <form action="{{ url_for('crear_tarea') }}" method="post" id="form-tarea" class="pill-card p-3">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+      <!-- Básicos + prioridad -->
+      <div class="row g-3 align-items-end">
+        <div class="col-lg-5">
+          <label class="form-label">Nombre de la tarea o supervisor</label>
+          <input type="text" class="form-control" name="nombre" id="nombre" placeholder="Ej: Supervisor: Juan / Empanada de Atún" required>
+        </div>
+
+        <div class="col-lg-4">
+          <label class="form-label">Ubicación</label>
+          <input type="text" class="form-control" name="ubicacion" id="ubicacion" placeholder="Ej: Denver, CO • Planta A">
+        </div>
+
+        <div class="col-lg-3">
+          <label class="form-label">Prioridad</label>
+          <div class="input-group">
+            <span class="input-group-text">Nivel</span>
+            <select class="form-select" name="prioridad" id="prioridad" required>
+              <option value="comun" selected>🟢 Común</option>
+              <option value="turnos">🔄 Turnos</option>
+              <option value="emergencia">🔴 Emergencia</option>
+            </select>
+          </div>
+          <div id="emerg-turnos-wrap" class="form-check form-switch mt-2 d-none">
+            <input class="form-check-input" type="checkbox" id="emerg_es_turnos" name="emerg_es_turnos" value="1">
+            <label class="form-check-label" for="emerg_es_turnos">¿Es por turnos?</label>
+          </div>
+        </div>
+
+        <!-- Descripción opcional (switch) -->
+        <div class="col-12">
+          <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="toggle_desc">
+            <label class="form-check-label" for="toggle_desc">Añadir descripción (opcional)</label>
+          </div>
+          <div id="desc_box" class="mt-2 d-none">
+            <textarea class="form-control" name="descripcion" rows="2" placeholder="Resumen breve…"></textarea>
+          </div>
+        </div>
+      </div>
+
+      <hr class="my-4">
+
+      <!-- Inicio, tz, tolerancia + TURNOS -->
+      <div class="row g-3 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label">Fecha de inicio</label>
+          <input type="date" class="form-control" name="fecha_inicio" id="fecha_inicio" required>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Hora de inicio</label>
+          <input type="time" class="form-control time-lg" name="hora_inicio" id="hora_inicio" required>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Tolerancia (min)</label>
+          <input type="number" class="form-control" name="tolerancia_min" id="tolMin" min="0" max="120" value="15">
+        </div>
+
+        <!-- TZ -->
+        <div class="col-lg-6">
+          <label class="form-label">Zona horaria de la tarea</label>
+          <div class="input-group">
+            <span class="input-group-text">TZ</span>
+            <select class="form-select" id="tz_select">
+              <option value="">Detectar automáticamente</option>
+              <option value="America/New_York">America/New_York (EDT/EST)</option>
+              <option value="America/Chicago">America/Chicago (CDT/CST)</option>
+              <option value="America/Denver">America/Denver (MDT/MST)</option>
+              <option value="America/Los_Angeles">America/Los_Angeles (PDT/PST)</option>
+              <option value="_manual">Otra… (IANA)</option>
+            </select>
+            <input type="text" class="form-control d-none" id="tz_manual" placeholder="Ej: America/Phoenix (IANA)">
+          </div>
+          <!-- Hidden real -->
+          <input type="hidden" name="tz_name" id="tz_name" value="">
+          <div class="hint mt-1 mini">Si eliges “Otra…”, escribe una TZ IANA válida (ej: America/Phoenix).</div>
+        </div>
+
+        <!-- TURNOS -->
+        <div class="col-12">
+          <div id="turnos_section" class="mt-2 d-none">
+            <div class="pill-card p-3">
+              <div class="d-flex align-items-center justify-content-between">
+                <div class="badge-dot">
+                  <span class="dot"></span>
+                  <strong>Turnos del día</strong>
+                </div>
+                <div class="input-group" style="max-width:240px">
+                  <span class="input-group-text">N° turnos</span>
+                  <input type="number" min="1" max="24" value="2" class="form-control" id="num_turnos" name="num_turnos">
+                </div>
+              </div>
+              <div class="hint mt-1">Se reparten en bloques consecutivos partiendo de la “Hora de inicio”.</div>
+              <div id="turnos_wrap" class="row g-2 mt-2"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <hr class="my-4">
+
+      <!-- Reportes -->
+      <div class="row g-3 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label">Cantidad de reportes al día</label>
+          <input type="number" min="1" max="10" class="form-control" id="cantidad_reportes" name="cantidad_reportes" placeholder="Ej: 3">
+          <div class="hint">Se generarán campos abajo. Requerido para crear la tarea.</div>
+        </div>
+        <div class="col-md-8">
+          <div class="subtle">
+            <div class="group-title">Indicaciones y ventana horaria</div>
+            <div id="indicaciones-wrap" class="row g-2"></div>
+            <div class="mini text-muted mt-1">Las horas de reportes usan la TZ de la tarea. El fin se sugiere a +15 min del inicio.</div>
+          </div>
+        </div>
+      </div>
+
+      <hr class="my-4">
+
+      <div class="mt-4 d-flex gap-2">
+        <button class="btn btn-primary">✅ Crear Tarea</button>
+        <a class="btn btn-outline-secondary" href="{{ url_for('admin_tareas') }}">Cancelar</a>
+      </div>
+    </form>
+
+    <!-- TUTORIAL LATERAL -->
+    <aside class="sticky-side">
+      <div class="pill-card p-3 border-accent mb-3">
+        <div class="chip mb-2">🧭 Guía rápida</div>
+        <div class="mini">
+          <p class="mb-2"><strong>Prioridad:</strong> “Emergencia” sugiere nombre ID automático y puede activar turnos.</p>
+          <p class="mb-2"><strong>Reportes:</strong> Define cantidad; cada reporte tiene horario (fin a +15 min por defecto).</p>
+          <p class="mb-0"><strong>Turnos:</strong> Se crean junto a la TZ; el Turno 1 inicia en la “Hora de inicio” y los demás se encadenan.</p>
+        </div>
+      </div>
+    </aside>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function(){
+  const $  = (s, c=document)=>c.querySelector(s);
+  const $$ = (s, c=document)=>Array.from(c.querySelectorAll(s));
+  const pad2 = n => String(n).padStart(2,'0');
+
+  /* ---------- Helpers de tiempo ---------- */
+  function parseHHMM(hhmm){
+    if(!hhmm || !/^\d{2}:\d{2}$/.test(hhmm)) return null;
+    const [h,m] = hhmm.split(':').map(x=>parseInt(x,10));
+    return h*60 + m;
+  }
+  function toHHMM(mins){
+    let m = ((mins % (24*60)) + (24*60)) % (24*60);
+    const h = Math.floor(m/60), mm = m%60;
+    return `${pad2(h)}:${pad2(mm)}`;
+  }
+  function addMinutes(hhmm, add){
+    const base = parseHHMM(hhmm);
+    if (base == null) return '';
+    return toHHMM(base + add);
+  }
+  const roundTo5 = (d)=>{
+    const r = new Date(d);
+    r.setSeconds(0,0);
+    const m = r.getMinutes();
+    r.setMinutes(m - (m % 5));
+    return r;
+  };
+
+  /* ---------- DOM refs ---------- */
+  const prioridadSel = $('#prioridad');
+  const emergWrap    = $('#emerg-turnos-wrap');
+  const emergTurnos  = $('#emerg_es_turnos');
+
+  const descSwitch = $('#toggle_desc');
+  const descBox    = $('#desc_box');
+
+  const fechaInicio = $('#fecha_inicio');
+  const horaInicio  = $('#hora_inicio');
+  const tzSelect    = $('#tz_select');
+  const tzManual    = $('#tz_manual');
+  const tzName      = $('#tz_name');
+
+  const cantInput   = $('#cantidad_reportes');
+  const indicWrap   = $('#indicaciones-wrap');
+
+  const turnosSection  = $('#turnos_section');
+  const numTurnosInput = $('#num_turnos');
+  const turnosWrap     = $('#turnos_wrap');
+  const nombre         = $('#nombre');
+  const ubicacion      = $('#ubicacion');
+
+  const tolInput       = $('#tolMin');       // tolerancia (min)
+  const repHintBox     = document.querySelector('.subtle .mini.text-muted');
+
+  // init date/time -> ahora (redondeado a 5 min)
+  const now = roundTo5(new Date());
+  if (!fechaInicio.value) fechaInicio.value = `${now.getFullYear()}-${pad2(now.getMonth()+1)}-${pad2(now.getDate())}`;
+  if (!horaInicio.value)  horaInicio.value  = `${pad2(now.getHours())}:${pad2(now.getMinutes())}`;
+
+  function getTol(){
+    const n = parseInt(tolInput?.value || '0', 10);
+    return Math.max(0, Math.min(120, isNaN(n) ? 0 : n));
+  }
+  function renderTolHint(){
+    if (!repHintBox) return;
+    const tol = getTol();
+    // reemplaza cualquier “+N min” previo
+    repHintBox.textContent = repHintBox.textContent.replace(/\+\d+\s*min(utos)?/i, `+${tol} min`);
+  }
+  tolInput?.addEventListener('input', renderTolHint);
+  renderTolHint();
+
+  /* ---------- REPORTES ---------- */
+  function markAuto(fin){ if (fin) fin.dataset.auto = '1'; }
+  function unmarkAuto(fin){ if (fin) delete fin.dataset.auto; }
+  function isAuto(fin){ return fin && fin.dataset.auto === '1'; }
+
+  function suggestFin(ini, fin){
+    const start = ini?.value;
+    if (!start) return;
+    const tol = getTol();
+    if (!fin.value || isAuto(fin)) {
+      const v = addMinutes(start, tol);
+      if (v) { fin.value = v; markAuto(fin); }
+    }
+  }
+
+  function bindReportRowEvents(row){
+    const ini = row.querySelector('input[name$="_ini"]');
+    const fin = row.querySelector('input[name$="_fin"]');
+    if (!ini || !fin) return;
+    ini.addEventListener('input', ()=> suggestFin(ini, fin));
+    ini.addEventListener('change',()=> suggestFin(ini, fin));
+    fin.addEventListener('input', ()=> unmarkAuto(fin));
+    fin.addEventListener('change',()=> unmarkAuto(fin));
+    suggestFin(ini, fin);
+  }
+
+  function renderIndicaciones(){
+    indicWrap.innerHTML = '';
+    const n = Math.max(0, Math.min(10, parseInt(cantInput.value||'0',10)));
+    if(!n) return;
+    const frag = document.createDocumentFragment();
+    for(let i=1;i<=n;i++){
+      const col = document.createElement('div');
+      col.className = 'col-12 col-lg-6';
+      col.innerHTML = `
+        <div class="pill-card p-2 h-100">
+          <div class="mini text-muted mb-1">Reporte ${i}</div>
+          <div class="input-group mb-2">
+            <span class="input-group-text">Nombre</span>
+            <input type="text" class="form-control" name="rep${i}_nombre" placeholder="Ej: Inicio / Medio día / Salida">
+          </div>
+          <div class="input-group">
+            <span class="input-group-text time-lg">Inicio</span>
+            <input type="time" class="form-control time-lg" name="rep${i}_ini">
+          </div>
+          <div class="mt-2 input-group">
+            <span class="input-group-text time-lg">Fin</span>
+            <input type="time" class="form-control time-lg" name="rep${i}_fin">
+          </div>
+        </div>`;
+      frag.appendChild(col);
+    }
+    indicWrap.appendChild(frag);
+    document.querySelectorAll('#indicaciones-wrap .col-12.col-lg-6').forEach(bindReportRowEvents);
+  }
+  cantInput.addEventListener('input', renderIndicaciones);
+
+  // al cambiar tolerancia, recalcular SOLO los fins autogenerados
+  function recalcAutoFins(){
+    document.querySelectorAll('#indicaciones-wrap input[name$="_ini"]').forEach(ini=>{
+      const fin = ini.closest('.pill-card')?.querySelector('input[name$="_fin"]');
+      if (fin && isAuto(fin)) suggestFin(ini, fin);
+    });
+  }
+  tolInput?.addEventListener('input', ()=>{ renderTolHint(); recalcAutoFins(); });
+  tolInput?.addEventListener('change',()=>{ renderTolHint(); recalcAutoFins(); });
+
+  /* ---------- TURNOS ---------- */
+  function shouldShowTurnos(){
+    const v = prioridadSel.value;
+    return (v === 'turnos') || (v === 'emergencia' && emergTurnos.checked);
+  }
+  // NUEVA: controla si el input num_turnos se envía o no
+  function syncNumTurnosPosting(show){
+    const num = document.getElementById('num_turnos');
+    if (!num) return;
+    if (show){
+      num.disabled = false;
+      if (!num.name) num.name = 'num_turnos';
+    } else {
+      num.disabled = true;
+      num.removeAttribute('name');
+    }
+  }
+
+  function parseHHMMSafe(hhmm){ return parseHHMM(hhmm ?? '08:00') ?? (8*60); }
+  function contiguousEvenShifts(startHHMM, total){
+    const startMin = parseHHMMSafe(startHHMM);
+    const dur   = Math.max(60, Math.floor((24*60) / Math.max(1,total)));
+    const slots = [];
+    for(let i=0;i<total;i++){
+      const ini = startMin + i*dur;
+      const fin = startMin + (i+1)*dur;
+      slots.push([toHHMM(ini), toHHMM(fin)]);
+    }
+    return slots;
+  }
+  function renderTurnos(){
+    const total = Math.max(1, Math.min(24, parseInt(numTurnosInput.value||'1',10)));
+    const base  = horaInicio.value || '08:00';
+    const slots = contiguousEvenShifts(base, total);
+    const rows = [];
+    for(let i=1;i<=total;i++){
+      const [ini,fin] = slots[i-1];
+      rows.push(`
+        <div class="col-12 col-md-6">
+          <div class="pill-card p-2">
+            <div class="d-flex align-items-center justify-content-between mb-2">
+              <span class="chip">Turno ${i}</span>
+            </div>
+            <div class="row g-2">
+              <div class="col-6">
+                <div class="input-group">
+                  <span class="input-group-text time-lg">Inicio</span>
+                  <input type="time" class="form-control time-lg turno-ini" data-i="${i}" name="turno_${i}_ini" value="${ini}">
+                </div>
+              </div>
+              <div class="col-6">
+                <div class="input-group">
+                  <span class="input-group-text time-lg">Fin</span>
+                  <input type="time" class="form-control time-lg turno-fin" data-i="${i}" name="turno_${i}_fin" value="${fin}">
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>`);
+    }
+    turnosWrap.innerHTML = rows.join('');
+
+    // encadenar: fin(i) -> ini(i+1), ini(i) -> fin(i-1)
+    turnosWrap.querySelectorAll('.turno-fin').forEach(inp=>{
+      inp.addEventListener('input', (e)=>{
+        const i = parseInt(e.target.getAttribute('data-i'),10);
+        const next = turnosWrap.querySelector(`input.turno-ini[data-i="${i+1}"]`);
+        if(next){ next.value = e.target.value; }
+      });
+    });
+    turnosWrap.querySelectorAll('.turno-ini').forEach(inp=>{
+      inp.addEventListener('input', (e)=>{
+        const i = parseInt(e.target.getAttribute('data-i'),10);
+        const prev = turnosWrap.querySelector(`input.turno-fin[data-i="${i-1}"]`);
+        if(prev){ prev.value = e.target.value; }
+      });
+    });
+  }
+
+  /* ---------- AUTORRELLENO EMERGENCIA (seguro, no invasivo) ---------- */
+  function safeSet(input, value){
+    if (!input) return;
+    const v = (input.value ?? '').toString().trim();
+    if (!v) input.value = value;
+  }
+  function applyEmergencyDefaults(){
+    // Nombre y ubicación (solo si están vacíos)
+    safeSet(nombre, `ID${Math.floor(10000 + Math.random()*90000)}`);
+    safeSet(ubicacion, 'N/A');
+
+    // Fecha y hora (si vacíos)
+    safeSet(fechaInicio, `${now.getFullYear()}-${pad2(now.getMonth()+1)}-${pad2(now.getDate())}`);
+    safeSet(horaInicio,  `${pad2(now.getHours())}:${pad2(now.getMinutes())}`);
+
+    // Tolerancia por defecto
+    if (!tolInput.value) tolInput.value = 15;
+    renderTolHint();
+
+    // Reportes: 1 como mínimo y completo
+    if (!cantInput.value || parseInt(cantInput.value,10) < 1){
+      cantInput.value = 1;
+      renderIndicaciones();
+    } else if ($$('#indicaciones-wrap .pill-card').length === 0){
+      renderIndicaciones();
+    }
+    const rep1Nombre = document.querySelector('input[name="rep1_nombre"]');
+    const rep1Ini    = document.querySelector('input[name="rep1_ini"]');
+    const rep1Fin    = document.querySelector('input[name="rep1_fin"]');
+    safeSet(rep1Nombre, 'Emergencia');
+    safeSet(rep1Ini, horaInicio.value);
+    if (rep1Ini){
+      const fin = addMinutes(rep1Ini.value || horaInicio.value, getTol());
+      if (rep1Fin && (!rep1Fin.value || rep1Fin.dataset.auto === '1')) {
+        rep1Fin.value = fin;
+        markAuto(rep1Fin);
+      }
+    }
+
+    // NO forzar switch de turnos; respetar su estado
+    const show = emergTurnos.checked;
+    turnosSection.classList.toggle('d-none', !show);
+    if (show) {
+      if (!numTurnosInput.value) numTurnosInput.value = 2;
+      renderTurnos();
+    }
+  }
+
+  /* ---------- PRIORIDAD & SWITCH DE TURNOS ---------- */
+  function onPriorityChange(){
+    const v = prioridadSel.value;
+    // mostrar el switch solo en Emergencia
+    emergWrap.classList.toggle('d-none', v!=='emergencia');
+
+    if(v==='emergencia'){
+      applyEmergencyDefaults();
+    }
+
+    const showTurnos = (v === 'turnos') || (v === 'emergencia' && emergTurnos.checked);
+    turnosSection.classList.toggle('d-none', !showTurnos);
+    syncNumTurnosPosting(showTurnos);
+
+    if (showTurnos) {
+      if (!numTurnosInput.value) numTurnosInput.value = 2;
+      renderTurnos();
+    }
+  }
+  prioridadSel.addEventListener('change', onPriorityChange);
+
+  // Cambio explícito del switch "¿Es por turnos?" en emergencia
+  emergTurnos.addEventListener('change', () => {
+    const isEmerg = prioridadSel.value === 'emergencia';
+    const show = isEmerg && emergTurnos.checked;
+    turnosSection.classList.toggle('d-none', !show);
+    syncNumTurnosPosting(show);
+
+    if (show) {
+      if (!numTurnosInput.value) numTurnosInput.value = 2;
+      renderTurnos();
+    }
+  });
+
+  // si cambia la Hora de inicio, recalcular turnos (Turno 1 arranca ahí)
+  horaInicio.addEventListener('input', ()=>{ if(shouldShowTurnos()) renderTurnos(); });
+
+  // si cambia cantidad de turnos, re-render
+  numTurnosInput.addEventListener('input', renderTurnos);
+
+  // inicial
+  onPriorityChange();
+
+  // Validar: exige al menos 1 reporte
+  document.querySelector('#form-tarea').addEventListener('submit', (e)=>{
+    const n = parseInt(cantInput.value || '0', 10);
+    if(!n || n<1){
+      e.preventDefault();
+      alert('Debes indicar la cantidad de reportes (al menos 1).');
+      cantInput.focus();
+      return false;
+    }
+  });
+
+  // Si ya hay cantidad al cargar, pintamos inputs y aplicamos sugerencias
+  if (parseInt(cantInput.value||'0',10) > 0) renderIndicaciones();
+})();
+</script>
+
+<!-- Sincroniza TZ (select/manual) -> hidden tz_name -->
+<script>
+(function(){
+  const tzSelect = document.getElementById('tz_select');
+  const tzManual = document.getElementById('tz_manual');
+  const tzHidden = document.getElementById('tz_name');
+
+  // Autodetección navegador (IANA). Si falla, usa UTC.
+  try {
+    const guess = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    if (!tzHidden.value) tzHidden.value = guess || 'UTC';
+  } catch(e){
+    if (!tzHidden.value) tzHidden.value = 'UTC';
+  }
+
+  function syncHidden(){
+    if (tzSelect.value === '_manual') {
+      tzHidden.value = (tzManual.value || '').trim();
+    } else if (tzSelect.value) {
+      tzHidden.value = tzSelect.value;
+    }
+    if (!tzHidden.value) tzHidden.value = 'UTC';
+  }
+
+  tzSelect.addEventListener('change', () => {
+    const manual = tzSelect.value === '_manual';
+    tzManual.classList.toggle('d-none', !manual);
+    if (manual) tzManual.focus();
+    syncHidden();
+  });
+
+  tzManual.addEventListener('input', syncHidden);
+})();
+</script>
+
+<!-- Toggle de descripción -->
+<script>
+(function () {
+  const $ = (s, c = document) => c.querySelector(s);
+  const descSwitch = $('#toggle_desc');
+  const descBox    = $('#desc_box');
+
+  function bindToggle(input, box) {
+    if (!input || !box) return;
+    const sync = () => box.classList.toggle('d-none', !input.checked);
+    sync();
+    input.addEventListener('change', sync);
+    input.addEventListener('click', sync);
+  }
+  bindToggle(descSwitch, descBox);
+})();
+</script>
+{% endblock %}

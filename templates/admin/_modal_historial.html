@@ -1,0 +1,98 @@
+<style>
+  .hist-modal{color:var(--bs-body-color);}
+  .hist-modal .pill-card{background:var(--bs-body-bg);border:1px solid var(--bs-border-color);border-radius:14px;box-shadow:0 6px 14px rgba(0,0,0,.06);}
+  .hist-modal .mini{font-size:.85rem;color:var(--bs-secondary-color);}
+  .hist-modal .chip{display:inline-flex;align-items:center;gap:.45rem;padding:.25rem .65rem;border-radius:999px;font-weight:700;font-size:.78rem;border:1px solid var(--bs-border-color);background:var(--bs-tertiary-bg);}
+  .hist-modal .badge-pill{display:inline-flex;align-items:center;gap:.4rem;padding:.28rem .7rem;border-radius:999px;font-weight:700;font-size:.78rem;}
+  .hist-modal .b-green{background:color-mix(in oklab,var(--bs-success),transparent 85%);border:1px solid color-mix(in oklab,var(--bs-success),transparent 65%);color:color-mix(in oklab,var(--bs-success),#000 30%);}
+  .hist-modal .b-yellow{background:color-mix(in oklab,var(--bs-warning),transparent 85%);border:1px solid color-mix(in oklab,var(--bs-warning),transparent 60%);color:color-mix(in oklab,var(--bs-warning),#000 35%);}
+  .hist-modal .b-red{background:color-mix(in oklab,var(--bs-danger),transparent 85%);border:1px solid color-mix(in oklab,var(--bs-danger),transparent 60%);color:color-mix(in oklab,var(--bs-danger),#000 30%);}
+  .hist-modal .b-blue{background:color-mix(in oklab,var(--bs-info),transparent 85%);border:1px solid color-mix(in oklab,var(--bs-info),transparent 60%);color:color-mix(in oklab,var(--bs-info),#000 35%);}
+
+  .hist-modal .table td,.hist-modal .table th{vertical-align:middle;border-color:var(--bs-border-color);}
+  .hist-modal .table thead{background:color-mix(in oklab,var(--bs-body-bg),var(--bs-tertiary-bg) 45%);}
+  .hist-modal .table tbody tr:hover{background:color-mix(in oklab,var(--bs-body-bg),var(--bs-tertiary-bg) 25%);}
+  .hist-modal .col-change{min-width:320px;}
+
+  /* Responsive: colapsa headers en móvil */
+  @media(max-width: 768px){
+    .hist-modal .table thead{display:none;}
+    .hist-modal .table tbody tr td{display:grid;grid-template-columns: 120px 1fr;gap:.25rem;}
+    .hist-modal .table tbody tr td::before{content:attr(data-label);font-weight:700;color:var(--bs-secondary-color);}
+    .hist-modal .col-change{min-width:auto;}
+  }
+</style>
+
+<div class="hist-modal">
+  <div class="d-flex align-items-center justify-content-between mb-2">
+    <div class="d-flex align-items-center gap-2">
+      <span class="chip"><i class="bi bi-clock-history"></i> Historial</span>
+      <span class="mini">Tarea: <b>{{ t.nombre }}</b></span>
+    </div>
+
+    <!-- Guía rápida colapsable -->
+    <div class="accordion" id="histHelp">
+      <div class="accordion-item" style="border:none;background:transparent;">
+        <h2 class="accordion-header">
+          <button class="accordion-button collapsed py-1 px-2" type="button" data-bs-toggle="collapse" data-bs-target="#histHelpBody" style="border:1px solid var(--bs-border-color);border-radius:10px;background:var(--bs-tertiary-bg);">
+            Guía rápida
+          </button>
+        </h2>
+        <div id="histHelpBody" class="accordion-collapse collapse">
+          <div class="accordion-body mini">
+            <ul class="mb-0">
+              <li>Ves <b>altas/remociones</b> con nombre del empleado, tarifa y turno.</li>
+              <li>Las <b>ediciones</b> de la tarea muestran “Antes → Después”.</li>
+              <li>Las <b>sanciones</b> incluyen tipo y motivo.</li>
+              <li>Todo es compatible con <b>modo oscuro</b> y móvil.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="pill-card p-0">
+    <div class="table-responsive">
+      <table class="table table-sm mb-0 align-middle">
+        <thead class="table-light">
+          <tr>
+            <th style="width:170px">Fecha/Hora</th>
+            <th style="width:170px">Tipo</th>
+            <th class="col-change">Cambio</th>
+            <th style="width:220px">Actor</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in rows %}
+          <tr>
+            <td data-label="Fecha/Hora">{{ r.fecha.strftime('%Y-%m-%d %H:%M') }}</td>
+            <td data-label="Tipo">
+              {% set tb = r.tipo.lower() %}
+              {% if 'alta' in tb %}
+                <span class="badge-pill b-green"><i class="bi bi-person-plus"></i> {{ r.tipo }}</span>
+              {% elif 'remov' in tb or 'baja' in tb %}
+                <span class="badge-pill b-red"><i class="bi bi-person-dash"></i> {{ r.tipo }}</span>
+              {% elif 'sanción' in r.tipo.lower() %}
+                <span class="badge-pill b-red"><i class="bi bi-exclamation-octagon"></i> {{ r.tipo }}</span>
+              {% elif 'estado' in tb %}
+                <span class="badge-pill b-yellow"><i class="bi bi-arrow-repeat"></i> {{ r.tipo }}</span>
+              {% elif 'edición' in r.tipo.lower() %}
+                <span class="badge-pill b-blue"><i class="bi bi-pencil-square"></i> {{ r.tipo }}</span>
+              {% else %}
+                <span class="badge-pill" style="border:1px solid var(--bs-border-color);">{{ r.tipo }}</span>
+              {% endif %}
+            </td>
+            <td data-label="Cambio">{{ r.cambio }}</td>
+            <td data-label="Actor" class="text-muted">{{ r.actor }}</td>
+          </tr>
+          {% else %}
+          <tr>
+            <td colspan="4" class="text-center text-muted p-4">Sin eventos registrados para esta tarea.</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

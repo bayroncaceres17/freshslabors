@@ -1,0 +1,83 @@
+{% extends "base_public.html" %}
+{% block title %}Registro de Empleado{% endblock %}
+
+{% block head %}
+<style>
+  .card-reg{max-width:680px;margin:40px auto;background:rgba(255,255,255,.06);
+    border:1px solid rgba(255,255,255,.16);border-radius:16px;box-shadow:inset 0 1px 0 rgba(255,255,255,.08);}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+  <div class="card-reg p-4">
+    {% if current_user.is_authenticated and current_user.rol=='empleado' and not current_user.onboarding_completo %}
+      <h3 class="text-white mb-3">Completar datos (primera vez)</h3>
+      <p class="text-muted">Estos datos quedan asociados a tu cuenta y se usan para pagos y contacto.</p>
+
+      <form id="firstTimeForm" class="row g-3">
+        <div class="col-12 col-md-6">
+          <label class="form-label">Nombre legal / firma</label>
+          <input class="form-control" name="nombre_legal_firma" placeholder="Nombre como aparece en pagos" required>
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label">Teléfono</label>
+          <input class="form-control" name="telefono" value="{{ current_user.telefono or '' }}" placeholder="57..." required>
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label">Email (opcional)</label>
+          <input type="email" class="form-control" name="email" placeholder="tucorreo@ejemplo.com">
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label">Zelle – Nombre</label>
+          <input class="form-control" name="zelle_nombre" placeholder="Nombre de Zelle">
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label">Zelle – Cuenta</label>
+          <input class="form-control" name="zelle_cuenta" placeholder="correo o teléfono de Zelle">
+        </div>
+
+        <div class="col-12 d-flex gap-2">
+          <a class="btn btn-outline-light" href="{{ url_for('empleado_panel') }}">Cancelar</a>
+          <button class="btn btn-success" type="submit">Guardar</button>
+        </div>
+      </form>
+
+      <div id="firstTimeMsg" class="mt-3"></div>
+
+    {% else %}
+      <h3 class="text-white mb-3">Crear cuenta de empleado</h3>
+      <p class="text-muted">Si ya tienes cuenta, vuelve e inicia con tu teléfono para recibir el OTP.</p>
+
+      <form method="post" action="{{ url_for('registro_empleado') }}" class="row g-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="col-12 col-md-6">
+          <label class="form-label">Nombre</label>
+          <input class="form-control" name="nombre" required>
+        </div>
+        <div class="col-12 col-md-6">
+          <label class="form-label">Teléfono</label>
+          <input class="form-control" name="telefono" value="{{ telefono_prefill or '' }}" placeholder="57..." required>
+        </div>
+        <div class="col-12 d-flex gap-2">
+          <a class="btn btn-outline-light" href="{{ url_for('index') }}">Volver</a>
+          <button class="btn btn-primary">Registrarme</button>
+        </div>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if current_user.is_authenticated and current_user.rol=='empleado' and not current_user.onboarding_completo %}
+<script>
+  const form = document.getElementById('firstTimeForm');
+  const msg  = document.getElementById('firstTimeMsg');
+
+  form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const payload = Object.fromEntries(new FormData(form).entries());
+    msg.innerHTML = '<div class="alert alert-info">Guardando…</div>';
+    try{
+      const r = await fetch('{{ url_for("api_empleado_f_

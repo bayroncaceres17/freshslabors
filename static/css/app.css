@@ -1,0 +1,86 @@
+/* ===== Topbar ===== */
+.topbar { background:#fff; }
+.topbar .topbtn{ border-radius:20px; padding:.2rem .75rem; }
+.topbar-divider{ height:2px; background:#e6ecff; }
+
+/* ===== Marca ===== */
+.brand-dot{
+  width:28px;height:28px;border-radius:50%;
+  display:inline-flex;align-items:center;justify-content:center;
+  font-weight:800;background:#2563eb;color:#fff;
+}
+.brand-text{ font-weight:600; color:#0f172a; }
+
+/* ===== Navbar principal con tabs planos ===== */
+.mainnav{ background:#fff; }
+.nav-underline{ height:4px; background:#3b82f6; box-shadow:0 1px 0 rgba(0,0,0,.06); }
+
+.nav-tabs-like{ list-style:none; padding:0; margin:0; display:flex; gap:22px; }
+.nav-tabs-like .tab{
+  display:inline-block; padding:14px 0; text-decoration:none;
+  color:#445376; font-weight:600; position:relative;
+}
+.nav-tabs-like .tab:hover{ color:#2563eb; }
+.nav-tabs-like .tab.active{
+  color:#2563eb;
+}
+.nav-tabs-like .tab.active::after{
+  content:""; position:absolute; left:0; right:0; bottom:-14px;
+  height:3px; background:#3b82f6; border-radius:3px;
+}
+
+/* campana */
+.bell-link{ color:#445376; font-size:1.15rem; }
+.bell-link:hover{ color:#2563eb; }
+.bell-link .badge{ position:absolute; top:-6px; right:-10px; font-size:.65rem; }
+.badge-pulse{position:relative;z-index:1}
+.badge-pulse::after{content:"";position:absolute;inset:0;border-radius:999px;animation:pulse 1.2s ease-out infinite;background:rgba(220,53,69,.28);z-index:-1}
+@keyframes pulse{0%{transform:scale(1);opacity:.7}70%{transform:scale(1.55);opacity:0}100%{transform:scale(1.55);opacity:0}}
+
+
+/* ===== Tutorial friendly ===== */
+.tutorial {
+  background:#f0f6ff;
+  border:1px solid #cfe3ff;
+  border-radius:16px;
+  padding:16px 18px;
+  box-shadow:0 6px 18px rgba(59,130,246,.06);
+}
+.tutorial h6{ font-weight:800; color:#1e3a8a; display:flex; gap:.5rem; align-items:center; }
+.tutorial .tip{ display:flex; gap:.6rem; color:#334155; margin:.35rem 0; }
+.tutorial .tip i{ color:#2563eb; margin-top:.15rem; }
+
+/* ===== Lista verde de tareas (chips) ===== */
+.task-chip{
+  background:#eefbf3; border:1px solid #c8f0d6; border-radius:12px;
+  padding:12px 14px; box-shadow:0 1px 0 rgba(0,0,0,.03);
+}
+.task-chip.empty{ background:#fff6f6; border-color:#ffd6d6; }
+.task-chip .title{ font-weight:800; color:#0f172a; }
+.task-chip .meta{ font-size:.92rem; color:#475569; }
+.task-chip .actions .btn{ border-radius:10px; }
+
+/* ===== Tarjetas KPI (si las usas) ===== */
+.kpi{ background:#fff; border:1px solid #e7ecff; border-radius:16px; box-shadow:0 10px 24px rgba(27,37,89,.06); padding:18px; }
+.kpi .label{ color:#5b6b8c; font-size:.85rem; }
+.kpi .value{ font-size:2rem; font-weight:800; letter-spacing:.4px; }
+.kpi .icon{ width:44px;height:44px;border-radius:10px;display:flex;align-items:center;justify-content:center; }
+.kpi.k1{ border-left:6px solid #2563eb; }   /* azul */
+.kpi.k2{ border-left:6px solid #16a34a; }   /* verde */
+.kpi.k3{ border-left:6px solid #f59e0b; }   /* naranja */
+.kpi.k4{ border-left:6px solid #0ea5e9; }   /* celeste */
+
+/* Tabs de la navbar como en tu imagen: subrayado azul y pill suave */
+.nav-tab{
+  position:relative; font-weight:600; color:#425277 !important;
+  padding:10px 12px; border-radius:10px;
+}
+.nav-tab:hover{ color:#2563eb !important; background:#eff6ff; }
+.nav-tab.active{ color:#2563eb !important; background:#eff6ff; }
+.nav-tab.active::after{
+  content:""; position:absolute; left:8px; right:8px; bottom:-9px;
+  height:3px; border-radius:3px; background:#3b82f6;
+}
+.badge-pulse{position:relative;z-index:1}
+.badge-pulse::after{content:"";position:absolute;inset:0;border-radius:999px;animation:pulse 1.2s ease-out infinite;background:rgba(220,53,69,.28);z-index:-1}
+@keyframes pulse{0%{transform:scale(1);opacity:.7}70%{transform:scale(1.55);opacity:0}100%{transform:scale(1.55);opacity:0}}

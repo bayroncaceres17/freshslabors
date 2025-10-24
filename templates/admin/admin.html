@@ -1,0 +1,737 @@
+{% extends "admin/base.html" %}
+{% block title %}Administración{% endblock %}
+{% block content %}
+
+<style>
+  /* —— Base sobria (claro/oscuro) —— */
+  .card-soft{background:var(--bs-body-bg);border:1px solid var(--bs-border-color);border-radius:14px;box-shadow:0 8px 18px rgba(0,0,0,.06)}
+  .admin-head{display:flex;gap:.6rem;align-items:center}
+  .admin-head .bi{font-size:1.1rem;color:var(--bs-body-color)}
+  .mini{color:var(--bs-secondary-color);font-size:.9rem}
+  .pill{border:1px solid var(--bs-border-color);border-radius:999px;padding:.25rem .6rem;background:transparent}
+
+  .hint-row{display:flex;flex-wrap:wrap;gap:.6rem}
+  .hint-chip{display:inline-flex;align-items:center;gap:.5rem;padding:.45rem .6rem;border-radius:10px}
+  .section-card .btn{display:flex;justify-content:space-between;align-items:center;border-radius:10px}
+  .section-card .btn .small{opacity:.9;color:currentColor}
+
+  .table thead th{font-weight:600;border-bottom-color:var(--bs-border-color)}
+  .table thead{background:var(--bs-tertiary-bg)}
+  .table-hover tbody tr:hover{background-color:color-mix(in oklab,var(--bs-tertiary-bg),transparent 35%)}
+  .badge.text-bg-light{background:var(--bs-secondary-bg)!important;color:var(--bs-body-color)!important;border:1px solid var(--bs-border-color)}
+  .role-badge{text-transform:capitalize}
+
+  .modal-content.card-soft{background:var(--bs-body-bg);border-color:var(--bs-border-color)}
+  .modal-header,.modal-footer{border-color:var(--bs-border-color);background:color-mix(in oklab,var(--bs-body-bg),var(--bs-tertiary-bg) 25%)}
+  .form-control,.form-select{background:var(--bs-body-bg);color:var(--bs-body-color);border-color:var(--bs-border-color)}
+  .form-control::placeholder{color:var(--bs-secondary-color)}
+
+  /* —— Claro —— */
+  [data-bs-theme="light"] .card-soft{border-color:#e5e7eb;box-shadow:0 8px 16px rgba(2,6,23,.06)}
+  [data-bs-theme="light"] .pill{background:#fff;border-color:#e5e7eb;color:#6b7280}
+  [data-bs-theme="light"] .hint-chip{background:#f8fafc;border:1px solid #e5e7eb;color:#111827}
+  [data-bs-theme="light"] .alert-success{background:#ecfdf5;border-color:#a7f3d0;color:#065f46}
+
+  /* —— Oscuro —— */
+  [data-bs-theme="dark"] .card-soft{background:#111827;border:1px solid rgba(255,255,255,.08);box-shadow:0 8px 18px rgba(0,0,0,.6)}
+  [data-bs-theme="dark"] .mini{color:#9ca3af}
+  [data-bs-theme="dark"] .hint-chip{background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.12);color:#e5e7eb}
+  [data-bs-theme="dark"] .table thead{background:#1f2937}
+  [data-bs-theme="dark"] .table thead th{color:#f3f4f6;border-bottom-color:rgba(255,255,255,.1)}
+  [data-bs-theme="dark"] .table td{border-color:rgba(255,255,255,.05);color:#e5e7eb}
+  [data-bs-theme="dark"] .badge.text-bg-light{background:rgba(255,255,255,.1)!important;color:#f3f4f6!important;border:1px solid rgba(255,255,255,.2)}
+  [data-bs-theme="dark"] .badge.text-bg-success{background:#065f46!important;color:#d1fae5!important}
+  [data-bs-theme="dark"] .badge.text-bg-secondary{background:#374151!important;color:#d1d5db!important}
+  [data-bs-theme="dark"] .alert-success{background:rgba(16,185,129,.15);border-color:rgba(16,185,129,.3);color:#6ee7b7}
+  [data-bs-theme="dark"] .btn-outline-secondary{color:#d1d5db;border-color:rgba(255,255,255,.2)}
+  [data-bs-theme="dark"] .btn-outline-primary{color:#93c5fd;border-color:rgba(59,130,246,.5)}
+
+  /* —— Responsive —— */
+  @media (max-width:991.98px){.section-card .btn .small{display:none}}
+  @media (max-width:767.98px){.admin-top{flex-direction:column;align-items:flex-start!important;gap:.5rem}.table{font-size:.95rem}}
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-3 admin-top">
+  <div class="admin-head">
+    <i class="bi bi-gear-wide-connected"></i>
+    <h4 class="mb-0">Administración del Sistema</h4>
+  </div>
+  <span class="pill mini">
+    <i class="bi bi-info-circle me-1"></i> Usuarios, empleados, respaldos y métricas.
+  </span>
+</div>
+
+<!-- Mini-tutorial -->
+<div class="card card-soft p-3 mb-4">
+  <div class="d-flex justify-content-between align-items-start gap-3">
+    <div class="hint-row">
+      <span class="hint-chip"><i class="bi bi-people"></i><b>Usuarios:</b> crea admins y roles.</span>
+      <span class="hint-chip"><i class="bi bi-people-fill"></i><b>Empleados:</b> soporte: Zelle y contacto.</span>
+      <span class="hint-chip"><i class="bi bi-hdd-stack"></i><b>Respaldos:</b> exporta empleados y colillas.</span>
+      <span class="hint-chip"><i class="bi bi-graph-up"></i><b>Stats:</b> tareas, horas y sanciones.</span>
+    </div>
+    <div class="mini d-none d-md-block">Tip: usa <b>Respaldo</b> para ZIP por fechas.</div>
+  </div>
+</div>
+
+<!-- Acciones -->
+<div class="row g-4">
+  <div class="col-lg-6">
+    <div class="card card-soft p-3 section-card">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h6 class="mb-0 d-flex align-items-center gap-2"><i class="bi bi-people-gear"></i> Gestión de Usuarios & Empleados</h6>
+        <span class="mini">Superadmin controla roles</span>
+      </div>
+      <div class="d-grid gap-2">
+        <a class="btn btn-primary" href="{{ url_for('admin_usuarios') }}">
+          <span class="d-flex align-items-center gap-2"><i class="bi bi-person-plus"></i> Usuarios del Sistema</span>
+          <span class="small">Crear / Listar / Editar</span>
+        </a>
+        <a class="btn btn-outline-primary" href="{{ url_for('admin_usuarios') }}">
+          <span class="d-flex align-items-center gap-2"><i class="bi bi-shield-lock"></i> Gestionar Roles</span>
+          <span class="small">Solo Superadmin</span>
+        </a>
+        <a class="btn btn-outline-secondary" href="{{ url_for('admin_reportes_usuario') }}">
+          <span class="d-flex align-items-center gap-2"><i class="bi bi-clipboard-data"></i> Reportes de Usuario</span>
+          <span class="small">Amonestaciones & KPIs</span>
+        </a>
+        <button class="btn btn-outline-dark" data-bs-toggle="collapse" data-bs-target="#empleadosCollapse">
+          <span class="d-flex align-items-center gap-2"><i class="bi bi-people-fill"></i> Empleados</span>
+          <span class="small">Listar / Editar datos</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-6">
+    <div class="card card-soft p-3 section-card">
+      <div class="d-flex align-items-center justify-content-between mb-3">
+        <h6 class="mb-0 d-flex align-items-center gap-2"><i class="bi bi-sliders"></i> Configuración del Sistema</h6>
+        <span class="mini">Preferencias generales</span>
+      </div>
+      <div class="d-grid gap-2">
+        <button class="btn btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#configModal">
+          <span class="d-flex align-items-center gap-2"><i class="bi bi-gear"></i> Configuración General</span>
+          <span class="small">Branding, OTP, archivos, UX</span>
+        </button>
+        <button class="btn btn-danger" data-bs-toggle="modal" data-bs-target="#backupModal">
+          <span class="d-flex align-items-center gap-2"><i class="bi bi-hdd-stack"></i> Respaldo de Datos</span>
+          <span class="small">Exportar CSV/ZIP</span>
+        </button>
+        <a class="btn btn-outline-dark" href "{{ url_for('admin_estadisticas') }}">
+          <span class="d-flex align-items-center gap-2"><i class="bi bi-graph-up"></i> Estadísticas del Sistema</span>
+          <span class="small">Semana actual</span>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Usuarios (staff) -->
+<div class="card card-soft mt-4">
+  <div class="p-3 border-bottom d-flex align-items-center gap-2" style="border-color:var(--bs-border-color)!important;">
+    <i class="bi bi-shield-lock"></i><span>Usuarios del Sistema</span>
+  </div>
+  <div class="p-3">
+    <div class="alert alert-success py-2 mb-3">
+      <b>Listado de staff:</b> Admin, Superadmin y Supervisor.
+      {% if current_user.rol == 'superadmin' %} Puedes <b>editar</b> o <b>eliminar</b> usuarios.
+      {% else %} Acceso <b>solo lectura</b>. {% endif %}
+    </div>
+
+    <div class="table-responsive">
+      <table class="table align-middle table-hover">
+        <thead>
+          <tr>
+            <th>Usuario</th><th>Rol</th><th>Último acceso</th><th>Estado</th><th class="text-end">Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for u in usuarios %}
+          {% if u.rol in ('admin','superadmin','supervisor') %}
+          <tr>
+            <td>
+              <div class="fw-semibold text-truncate">{{ u.nombre }}</div>
+              <div class="text-muted small text-truncate">{{ u.email or u.telefono or '' }}</div>
+            </td>
+            <td><span class="badge text-bg-light role-badge">{{ u.rol }}</span></td>
+            <td class="text-muted small">{{ u.last_login.strftime("%Y-%m-%d %H:%M") if u.last_login else "—" }}</td>
+            <td>
+              <span class="badge {{ 'text-bg-success' if u.activo else 'text-bg-secondary' }}">{{ 'Activo' if u.activo else 'Inactivo' }}</span>
+            </td>
+            <td class="text-end">
+              <div class="d-inline-flex gap-2 flex-wrap">
+                {% if current_user.rol == 'superadmin' %}
+                <form method="post" action="{{ url_for('admin_usuarios_cambiar_rol', uid=u.id) }}" class="d-flex gap-2 align-items-center">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <select name="rol" class="form-select form-select-sm w-auto">
+                    <option value="admin" {{ 'selected' if u.rol=='admin' }}>admin</option>
+                    <option value="superadmin" {{ 'selected' if u.rol=='superadmin' }}>superadmin</option>
+                    <option value="supervisor" {{ 'selected' if u.rol=='supervisor' }}>supervisor</option>
+                  </select>
+                  <button class="btn btn-outline-primary btn-sm" title="Guardar rol"><i class="bi bi-save"></i></button>
+                </form>
+                {% endif %}
+
+                <form method="post" action="{{ url_for('admin_usuarios_toggle_activo', uid=u.id) }}">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn-outline-secondary btn-sm" title="Activar/Desactivar">
+                    <i class="bi {{ 'bi-toggle-on' if u.activo else 'bi-toggle-off' }}"></i>
+                  </button>
+                </form>
+
+                {% if current_user.rol in ('admin','superadmin') %}
+                <!-- Modal pequeño para staff (correo/teléfono/contraseña) -->
+                <button class="btn btn-outline-primary btn-sm"
+                        data-bs-toggle="modal" data-bs-target="#staffEditModal"
+                        title="Editar email, teléfono y contraseña"
+                        data-id="{{ u.id }}"
+                        data-nombre="{{ u.nombre or '' }}"
+                        data-email="{{ u.email or '' }}"
+                        data-telefono="{{ u.telefono or '' }}">
+                  <i class="bi bi-pencil-square"></i>
+                </button>
+                {% endif %}
+
+                {% if current_user.rol == 'superadmin' and u.rol != 'superadmin' %}
+                <form method="post" action="{{ url_for('admin_usuarios_eliminar', uid=u.id) }}" onsubmit="return confirm('¿Eliminar usuario definitivamente?');">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn-outline-danger btn-sm" title="Eliminar"><i class="bi bi-trash"></i></button>
+                </form>
+                {% endif %}
+              </div>
+            </td>
+          </tr>
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- EMPLEADOS (colapsable) -->
+<div class="collapse mt-4" id="empleadosCollapse">
+  <div class="card card-soft">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center" style="border-color:var(--bs-border-color)!important;">
+      <div class="d-flex align-items-center gap-2">
+        <i class="bi bi-people-fill"></i><span>Empleados (Soporte)</span>
+      </div>
+      <!-- Buscador dinámico -->
+      <div class="input-group input-group-sm" style="max-width:260px;">
+        <span class="input-group-text"><i class="bi bi-search"></i></span>
+        <input id="searchEmpleado" type="text" class="form-control" placeholder="Buscar por nombre o teléfono">
+      </div>
+    </div>
+    <div class="p-3">
+      <!-- Mini tutorial específico de empleados -->
+      <div class="alert alert-secondary py-2 mb-3 mini">
+        <i class="bi bi-info-circle me-1"></i>
+        <b>Formato teléfono:</b> obligatorio con prefijo internacional.
+        Solo se aceptan <code>+1</code> (EE. UU.) o <code>+57</code> (Colombia). Ej.: <code>+15715551234</code> o <code>+573001234567</code>.
+      </div>
+
+      {% if empleados %}
+      <div class="table-responsive">
+        <table class="table align-middle table-hover" id="empleadosTable">
+          <thead>
+            <tr>
+              <th>Empleado</th>
+              <th>Teléfono</th>
+              <th>Zelle a nombre de</th>
+              <th>Cuenta Zelle</th>
+              <th>Confirmado</th>
+              <th class="text-end">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for e in empleados %}
+            <tr>
+              <td>
+                <div class="fw-semibold text-truncate">{{ e.nombre }}</div>
+                <div class="text-muted small text-truncate">{{ e.email or '' }}</div>
+              </td>
+              <td class="text-muted small">{{ e.telefono or '—' }}</td>
+              <td class="text-muted small">{{ e.zelle_nombre or e.zelle_titular or '—' }}</td>
+              <td class="text-muted small">{{ e.zelle_cuenta or '—' }}</td>
+              <td>
+                {% set confirmado = e.nombre_legal_firma or e.nombre_confirmado %}
+                <span class="badge {{ 'text-bg-success' if confirmado else 'text-bg-secondary' }}">{{ 'Sí' if confirmado else 'No' }}</span>
+              </td>
+              <td class="text-end">
+                {% if current_user.rol in ('superadmin','admin') %}
+                <button class="btn btn-outline-primary btn-sm"
+                        data-bs-toggle="modal" data-bs-target="#empleadoModal"
+                        data-id="{{ e.id }}"
+                        data-nombre="{{ e.nombre or '' }}"
+                        data-telefono="{{ e.telefono or '' }}"
+                        data-email="{{ e.email or '' }}"
+                        data-zelle_nombre="{{ e.zelle_nombre or e.zelle_titular or '' }}"
+                        data-zelle_cuenta="{{ e.zelle_cuenta or '' }}"
+                        data-confirmado="{{ 1 if confirmado else 0 }}">
+                  <i class="bi bi-pencil-square"></i> Editar
+                </button>
+                {% else %}
+                <span class="text-muted small">Solo lectura</span>
+                {% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+        <div class="alert alert-secondary">No hay empleados para mostrar.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Modal edición empleado -->
+<div class="modal fade" id="empleadoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content card-soft">
+      <div class="modal-header">
+        <h6 class="modal-title d-flex align-items-center gap-2"><i class="bi bi-person-badge"></i> Editar Empleado</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <form method="post" id="empleadoForm">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label small">Nombre completo</label>
+              <input class="form-control" name="nombre" required>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label small">Teléfono</label>
+              <input class="form-control" name="telefono"
+                     placeholder="+573001234567"
+                     pattern="^\+(1|57)\d{7,14}$"
+                     title="Teléfono internacional obligatorio: +1 o +57, seguido solo de dígitos">
+              <div class="form-text mini">Usa <code>+1</code> o <code>+57</code>. Ej.: <code>+573001234567</code></div>
+              <div class="invalid-feedback">Formato inválido. Debe comenzar con +1 o +57 y contener solo dígitos.</div>
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label small">Email (opcional)</label>
+              <input class="form-control" type="email" name="email">
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label small">Zelle a nombre de</label>
+              <input class="form-control" name="zelle_nombre">
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label small">Cuenta Zelle</label>
+              <input class="form-control" name="zelle_cuenta">
+            </div>
+
+            <div class="col-md-6">
+              <label class="form-label small d-block mb-1">Confirmación de nombre</label>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="nombre_confirmado" id="conf">
+                <label class="form-check-label small" for="conf">Nombre verificado</label>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-primary"><i class="bi bi-save me-1"></i> Guardar</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Respaldo -->
+<div class="modal fade" id="backupModal" tabindex="-1" aria-labelledby="backupModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content card-soft">
+      <div class="modal-header">
+        <h6 class="modal-title d-flex align-items-center gap-2" id="backupModalLabel"><i class="bi bi-hdd-stack"></i> Respaldo de Datos</h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row g-3">
+          <div class="col-md-6">
+            <div class="p-3 border rounded h-100" style="border-color:var(--bs-border-color)!important;">
+              <div class="d-flex align-items-center gap-2 mb-2"><i class="bi bi-person-lines-fill"></i><b>Empleados activos</b></div>
+              <p class="mini mb-3">No bloqueados ni baneados. Incluye nombre, contacto y Zelle.</p>
+              <a class="btn btn-outline-primary w-100" href="/admin/export/empleados_activos.csv"><i class="bi bi-download me-1"></i> CSV</a>
+              <br>
+              <a class="btn btn-outline-success w-100" href="/admin/export/empleados_activos.xlsx"><i class="bi bi-file-earmark-spreadsheet me-1"></i> XLSX</a>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="p-3 border rounded h-100" style="border-color:var(--bs-border-color)!important;">
+              <div class="d-flex align-items-center gap-2 mb-2"><i class="bi bi-receipt"></i><b>Colillas de pago (ZIP)</b></div>
+              <p class="mini mb-3">Rango de fechas. Formato: (Nombre)_(Fecha)_(Teléfono)</p>
+              <form class="row g-2" method="get" action="/admin/export/colillas.zip">
+                <div class="col-6"><label class="form-label small">Desde</label><input type="date" class="form-control" name="start" required></div>
+                <div class="col-6"><label class="form-label small">Hasta</label><input type="date" class="form-control" name="end" required></div>
+                <div class="col-12"><button class="btn btn-outline-primary w-100"><i class="bi bi-archive me-1"></i> Descargar ZIP</button></div>
+              </form>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="p-3 border rounded h-100" style="border-color:var(--bs-border-color)!important;">
+              <div class="d-flex align-items-center gap-2 mb-2"><i class="bi bi-filetype-csv"></i><b>Informes semanales</b></div>
+              <div class="d-flex gap-2">
+                <a class="btn btn-outline-secondary w-50" href="/admin/informes/semana.xlsx"><i class="bi bi-download me-1"></i> XLSX</a>
+              </div>
+            </div>
+          </div>
+          <div class="col-md-6">
+            <div class="p-3 border rounded h-100" style="border-color:var(--bs-border-color)!important;">
+              <div class="d-flex align-items-center gap-2 mb-2"><i class="bi bi-clock-history"></i><b>Historial de cambios (CSV)</b></div>
+              <a class="btn btn-outline-secondary w-100" href="/admin/export/historial.csv"><i class="bi bi-download me-1"></i> Descargar CSV</a>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <span class="mini"><i class="bi bi-shield-check me-1"></i> Acceso: Admin / Superadmin</span>
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Configuración (LLENO) -->
+<!-- Modal Configuración -->
+<div class="modal fade" id="configModal" tabindex="-1" aria-labelledby="configModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content card-soft">
+      <div class="modal-header">
+        <h6 class="modal-title d-flex align-items-center gap-2" id="configModalLabel">
+          <i class="bi bi-gear"></i> Configuración General
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <form method="post" action="{{ url_for('admin_config_post') }}" enctype="multipart/form-data">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <div class="row g-3">
+
+            <!-- IDENTIDAD & BRANDING -->
+            <div class="col-12">
+              <div class="p-3 border rounded" style="border-color:var(--bs-border-color)!important;">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                  <i class="bi bi-building"></i><b>Identidad & Branding</b>
+                </div>
+
+                <div class="row g-3">
+                  <div class="col-md-6">
+                    <label class="form-label small">Nombre</label>
+                    <input class="form-control" name="brand_name" value="{{ appcfg.brand_name }}">
+                  </div>
+
+                  <!-- URL opcional -->
+                  <div class="col-md-6">
+                    <label class="form-label small">Logo (URL opcional)</label>
+                    <input class="form-control" name="brand_logo" id="brand_logo_url"
+                           value="{{ appcfg.brand_logo }}" placeholder="/static/logos/tu_logo.png o https://...">
+                    <div class="form-text mini">Si subes un archivo, este tendrá prioridad.</div>
+                  </div>
+
+                  <!-- Subir archivo -->
+                  <div class="col-md-7">
+                    <label class="form-label small">Subir logo (prioridad)</label>
+                    <input class="form-control" type="file" name="brand_logo_file" id="brand_logo_file"
+                           accept=".png,.jpg,.jpeg,.gif,.webp,.svg">
+                    <div class="form-text mini">Formatos: PNG, JPG, JPEG, GIF, WEBP o SVG.</div>
+                  </div>
+
+                  <!-- Vista previa + eliminar -->
+                  <div class="col-md-5">
+                    <label class="form-label small d-block">Vista previa</label>
+                    {% set _logo = appcfg.brand_logo %}
+                    {% if _logo and not _logo.startswith('http') %}
+                      {% set _logo = url_for('static', filename=_logo) %}
+                    {% endif %}
+                    <div class="p-2 rounded" style="background:var(--bs-secondary-bg);">
+                      <img id="brand_logo_preview"
+                           src="{{ _logo or '' }}"
+                           alt="Logo"
+                           style="max-width:100%;max-height:90px;object-fit:contain;display:{{ 'block' if _logo else 'none' }};">
+                      {% if not _logo %}
+                        <div id="brand_logo_empty" class="mini text-muted">Aún sin logo.</div>
+                      {% endif %}
+                    </div>
+
+                    {% if appcfg.brand_logo %}
+                    <div class="form-check form-switch mt-2">
+                      <input class="form-check-input" type="checkbox" name="remove_logo" id="remove_logo">
+                      <label class="form-check-label small" for="remove_logo">Eliminar logo actual</label>
+                    </div>
+                    {% endif %}
+                  </div>
+
+                  <div class="col-12">
+                    <label class="form-label small">Pie (informes/emails)</label>
+                    <input class="form-control" name="brand_footer" value="{{ appcfg.brand_footer }}">
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- CONTACTO & CANALES -->
+            <div class="col-12">
+              <div class="p-3 border rounded" style="border-color:var(--bs-border-color)!important;">
+                <div class="d-flex align-items-center gap-2 mb-2"><i class="bi bi-chat-dots"></i><b>Contacto & Canales</b></div>
+                <div class="row g-3">
+                  <div class="col-md-4"><label class="form-label small">WhatsApp remitente</label><input class="form-control" name="wa_sender" value="{{ appcfg.wa_sender }}"></div>
+                  <div class="col-md-8"><label class="form-label small">Prefijo de mensajes</label><input class="form-control" name="wa_prefix" value="{{ appcfg.wa_prefix }}"></div>
+                  <div class="col-12"><label class="form-label small">Email “from”</label><input class="form-control" type="email" name="mail_from" value="{{ appcfg.mail_from }}"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ACCESO & SEGURIDAD -->
+            <div class="col-12">
+              <div class="p-3 border rounded" style="border-color:var(--bs-border-color)!important;">
+                <div class="d-flex align-items-center gap-2 mb-2"><i class="bi bi-shield-lock"></i><b>Acceso & Seguridad</b></div>
+                <div class="row g-3">
+                  <div class="col-md-3">
+                    <label class="form-label small d-block">OTP activo</label>
+                    <div class="form-check form-switch">
+                      <input class="form-check-input" type="checkbox" name="otp_enabled" {{ 'checked' if appcfg.otp_enabled else '' }}>
+                      <label class="form-check-label small">Permitir OTP</label>
+                    </div>
+                  </div>
+                  <div class="col-md-3"><label class="form-label small">OTP (min)</label><input class="form-control" type="number" name="otp_expiry_min" min="1" value="{{ appcfg.otp_expiry_min }}"></div>
+                  <div class="col-md-3"><label class="form-label small">Reintento (seg)</label><input class="form-control" type="number" name="otp_resend_sec" min="5" value="{{ appcfg.otp_resend_sec }}"></div>
+                  <div class="col-md-3"><label class="form-label small">Máx intentos</label><input class="form-control" type="number" name="otp_max_attempts" min="1" value="{{ appcfg.otp_max_attempts }}"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- ARCHIVOS & UX -->
+            <div class="col-12">
+              <div class="p-3 border rounded" style="border-color:var(--bs-border-color)!important;">
+                <div class="d-flex align-items-center gap-2 mb-2"><i class="bi bi-folder2-open"></i><b>Archivos & UX</b></div>
+                <div class="row g-3">
+                  <div class="col-md-3"><label class="form-label small">Máx foto (MB)</label><input class="form-control" type="number" name="max_upload_mb" min="1" value="{{ appcfg.max_upload_mb }}"></div>
+                  <div class="col-md-3"><label class="form-label small">Máx colilla (MB)</label><input class="form-control" type="number" name="max_colilla_mb" min="1" value="{{ appcfg.max_colilla_mb }}"></div>
+                  <div class="col-md-3"><label class="form-label small">Carpeta colillas</label><input class="form-control" name="dir_colillas" value="{{ appcfg.dir_colillas }}"></div>
+                  <div class="col-md-3"><label class="form-label small">Carpeta pagos</label><input class="form-control" name="dir_pagos" value="{{ appcfg.dir_pagos }}"></div>
+                  <div class="col-md-4"><label class="form-label small">Ítems por página</label><input class="form-control" type="number" name="table_page_size" min="5" value="{{ appcfg.table_page_size }}"></div>
+                  <div class="col-md-8">
+                    <label class="form-label small">Tema por defecto</label>
+                    <select class="form-select" name="theme_default">
+                      <option value="auto" {{ 'selected' if appcfg.theme_default=='auto' }}>auto (según sistema)</option>
+                      <option value="light" {{ 'selected' if appcfg.theme_default=='light' }}>claro</option>
+                      <option value="dark"  {{ 'selected' if appcfg.theme_default=='dark'  }}>oscuro</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-primary"><i class="bi bi-save me-1"></i> Guardar</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const fileInput = document.getElementById('brand_logo_file');
+  const urlInput  = document.getElementById('brand_logo_url');
+  const img       = document.getElementById('brand_logo_preview');
+  const emptyNote = document.getElementById('brand_logo_empty');
+  const removeChk = document.getElementById('remove_logo');
+
+  if (fileInput && img) {
+    fileInput.addEventListener('change', (ev)=>{
+      const f = ev.target.files?.[0];
+      if(!f) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        img.src = e.target.result;
+        img.style.display = 'block';
+        if (emptyNote) emptyNote.style.display = 'none';
+      };
+      reader.readAsDataURL(f);
+      if (urlInput) urlInput.value = '';
+      if (removeChk) removeChk.checked = false;
+    });
+  }
+
+  // Si el usuario marca "Eliminar logo", oculta preview inmediatamente
+  if (removeChk && img) {
+    removeChk.addEventListener('change', ()=>{
+      if (removeChk.checked) {
+        img.style.display = 'none';
+        if (emptyNote) emptyNote.style.display = 'block';
+        if (fileInput) fileInput.value = '';
+        if (urlInput) urlInput.value = '';
+      }
+    });
+  }
+})();
+</script>
+
+
+<!-- Modal PEQUEÑO: Editar usuario staff (correo/teléfono/contraseña) -->
+<div class="modal fade" id="staffEditModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-sm modal-dialog-centered">
+    <div class="modal-content card-soft">
+      <div class="modal-header">
+        <h6 class="modal-title d-flex align-items-center gap-2">
+          <i class="bi bi-person-gear"></i> Editar usuario
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <form method="post" id="staffEditForm" action="{{ url_for('admin_usuarios_editar_basico', uid=0) }}">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <div class="mb-2">
+            <label class="form-label small">Nombre</label>
+            <input class="form-control" name="nombre" disabled>
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label small">Correo</label>
+            <input class="form-control" type="email" name="email" placeholder="usuario@dominio.com">
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label small">Teléfono</label>
+            <input class="form-control" name="telefono"
+                   placeholder="+573001234567"
+                   pattern="^\+(1|57)\d{7,14}$"
+                   title="Teléfono internacional obligatorio: +1 o +57, seguido solo de dígitos">
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label small">Nueva contraseña <span class="text-muted">(opcional)</span></label>
+            <input class="form-control" type="password" name="password" minlength="6" autocomplete="new-password" placeholder="mín. 6 caracteres">
+          </div>
+
+          <div class="mb-1">
+            <label class="form-label small">Repetir contraseña</label>
+            <input class="form-control" type="password" name="password2" minlength="6" autocomplete="new-password">
+          </div>
+
+          <div class="form-text small">Deja contraseña en blanco si no quieres cambiarla.</div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-primary">
+            <i class="bi bi-save me-1"></i> Guardar
+          </button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Filtro dinámico empleados
+  const input = document.getElementById('searchEmpleado');
+  const table = document.getElementById('empleadosTable')?.getElementsByTagName('tbody')[0];
+  if(input && table){
+    input.addEventListener('keyup', function(){
+      const term = this.value.toLowerCase();
+      Array.from(table.getElementsByTagName('tr')).forEach(row => {
+        const nombre = row.cells[0].innerText.toLowerCase();
+        const telefono = row.cells[1].innerText.toLowerCase();
+        row.style.display = (nombre.includes(term) || telefono.includes(term)) ? '' : 'none';
+      });
+    });
+  }
+
+  // Modal edición empleado
+  const empleadoModal = document.getElementById('empleadoModal');
+  if(empleadoModal){
+    empleadoModal.addEventListener('show.bs.modal', event => {
+      const btn = event.relatedTarget;
+      const form = document.getElementById('empleadoForm');
+      const id = btn.getAttribute('data-id');
+      form.action = "{{ url_for('admin_empleados_editar', uid=0) }}".replace('/0/', '/' + id + '/');
+      form.nombre.value = btn.getAttribute('data-nombre') || '';
+      form.telefono.value = (btn.getAttribute('data-telefono') || '').replace(/[\s-]/g,'');
+      form.email.value = btn.getAttribute('data-email') || '';
+      form.zelle_nombre.value = btn.getAttribute('data-zelle_nombre') || '';
+      form.zelle_cuenta.value = btn.getAttribute('data-zelle_cuenta') || '';
+      form.nombre_confirmado.checked = (btn.getAttribute('data-confirmado') === '1');
+    });
+
+    // Validación estricta del teléfono al enviar
+    document.getElementById('empleadoForm')?.addEventListener('submit', (e)=>{
+      const tel = e.target.querySelector('input[name="telefono"]');
+      if(tel){
+        tel.value = (tel.value || '').replace(/[\s-]/g,'');
+        const ok = /^\+(1|57)\d{7,14}$/.test(tel.value);
+        tel.classList.toggle('is-invalid', !ok);
+        if(!ok){
+          e.preventDefault();
+          alert('Teléfono inválido. Debe comenzar con +1 o +57 y contener solo dígitos.');
+          tel.focus();
+        }
+      }
+    });
+  }
+
+  // Modal edición staff
+  const staffModal = document.getElementById('staffEditModal');
+  if (staffModal) {
+    staffModal.addEventListener('show.bs.modal', (ev) => {
+      const btn  = ev.relatedTarget;
+      const form = document.getElementById('staffEditForm');
+
+      const id    = btn.getAttribute('data-id');
+      const nombre= btn.getAttribute('data-nombre') || '';
+      const email = btn.getAttribute('data-email')  || '';
+      const tel   = (btn.getAttribute('data-telefono') || '').replace(/[\s-]/g,'');
+
+      form.action = "{{ url_for('admin_usuarios_editar_basico', uid=0) }}".replace('/0', '/' + id);
+
+      form.nombre.value   = nombre;
+      form.email.value    = email;
+      form.telefono.value = tel;
+
+      form.password.value  = '';
+      form.password2.value = '';
+    });
+
+    // Validación staff (+1 o +57) + contraseñas
+    document.getElementById('staffEditForm')?.addEventListener('submit', (e)=>{
+      const tel = e.target.querySelector('[name=telefono]');
+      const p1  = e.target.querySelector('[name=password]');
+      const p2  = e.target.querySelector('[name=password2]');
+
+      if(tel && tel.value){
+        tel.value = (tel.value||'').replace(/[\s-]/g,'');
+        const ok = /^\+(1|57)\d{7,14}$/.test(tel.value);
+        if(!ok){
+          e.preventDefault();
+          alert('Teléfono inválido. Usa +1 o +57 y solo dígitos.');
+          tel.focus();
+          return;
+        }
+      }
+      if(p1 && p2 && p1.value && p1.value !== p2.value){
+        e.preventDefault();
+        alert('Las contraseñas no coinciden.');
+        p2.focus();
+      }
+    });
+  }
+</script>
+
+{% endblock %}

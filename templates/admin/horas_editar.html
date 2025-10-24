@@ -1,0 +1,103 @@
+{% extends "admin/base.html" %}
+{% block title %}Editar horas por tarea{% endblock %}
+{% block content %}
+<h5 class="mb-3">Editar horas — Tarea: {{ tarea.nombre }} — {{ fecha }}</h5>
+
+{% if asigs|length == 0 %}
+  <div class="alert alert-info">No hay asignaciones para esta tarea.</div>
+{% else %}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle" id="tblEditTask">
+      <thead class="table-light">
+        <tr>
+          <th>Empleado</th>
+          <th style="min-width:220px">Asistencia</th>
+          <th style="min-width:220px">Salida</th>
+          <th>Lunch</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for a in asigs %}
+        {% set reps = by_emp.get(a.usuario_id, []) %}
+        {% set asis = None %}
+        {% set sal  = None %}
+        {% set lunch = None %}
+        {% for r in reps %}
+          {% if r.tipo == 'asistencia' and not asis %}{% set asis = r %}{% endif %}
+          {% if r.tipo == 'salida' and not sal %}{% set sal = r %}{% endif %}
+          {% if r.tipo == 'lunch' and not lunch %}{% set lunch = r %}{% endif %}
+        {% endfor %}
+        <tr data-uid="{{ a.usuario_id }}" data-tarea="{{ a.tarea_id }}">
+          <td>
+            <div class="fw-semibold">{{ a.usuario.nombre }}</div>
+            <div class="text-muted small">{{ a.usuario.telefono or '' }}</div>
+          </td>
+          <td>
+            <input type="datetime-local" class="form-control form-control-sm asis"
+                   value="{{ asis.timestamp.strftime('%Y-%m-%dT%H:%M') if asis }}">
+          </td>
+          <td>
+            <input type="datetime-local" class="form-control form-control-sm sal"
+                   value="{{ sal.timestamp.strftime('%Y-%m-%dT%H:%M') if sal }}">
+          </td>
+          <td>
+            <div class="form-check">
+              <input class="form-check-input lunch" type="checkbox" {{ 'checked' if lunch else '' }}>
+              <label class="form-check-label small">Lunch (se descuenta con <code>lunch_min</code> de la asignación)</label>
+            </div>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('admin_horas') }}" class="btn btn-outline-secondary btn-sm">Volver</a>
+    <button id="btnGuardarTask" class="btn btn-primary btn-sm">Guardar cambios</button>
+  </div>
+{% endif %}
+
+<script>
+/* Guarda cambios por filas usando tus endpoints existentes:
+   - POST /admin/horas/editar-dia   (crea/actualiza asistencia/salida)
+   - POST /admin/horas/toggle-lunch (marca/quita lunch)
+*/
+document.getElementById("btnGuardarTask")?.addEventListener("click", async ()=>{
+  const fecha = "{{ fecha }}";
+  const rows = Array.from(document.querySelectorAll("#tblEditTask tbody tr"));
+  for (const tr of rows){
+    const uid = parseInt(tr.dataset.uid, 10);
+    const tid = parseInt(tr.dataset.tarea, 10);
+    const asis = tr.querySelector(".asis")?.value || "";
+    const sal  = tr.querySelector(".sal")?.value || "";
+    const lunchOn = tr.querySelector(".lunch")?.checked;
+
+    // 1) lunch toggle
+    if (typeof lunchOn === "boolean"){
+      await fetch("{{ url_for('admin_toggle_lunch') }}", {
+        method: "POST", headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({ uid: uid, tarea_id: tid, fecha: fecha, on: lunchOn })
+      });
+    }
+
+    // 2) asistencia/salida (crea si faltan; permite pasado/futuro)
+    const payload = {
+      uid: uid, fecha: fecha,
+      items: [{
+        tarea_id: tid,
+        asistencia_ts: asis ? asis.replace("T"," ") : null,
+        salida_ts:     sal  ? sal.replace("T"," ")  : null,
+        crear_salida_si_falta: true
+      }]
+    };
+    await fetch("{{ url_for('admin_horas_editar_dia_post') }}", {
+      method: "POST", headers: {"Content-Type":"application/json"},
+      body: JSON.stringify(payload)
+    });
+  }
+  alert("Cambios guardados.");
+  location.reload();
+});
+</script>
+{% endblock %}

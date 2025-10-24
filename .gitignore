@@ -1,0 +1,24 @@
+# Entornos y dependencias
+venv/
+*.pyc
+__pycache__/
+
+# Archivos temporales o locales
+*.db
+instance/
+uploads/
+*.sqlite3
+*.log
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# Archivos de IDE
+.vscode/
+.idea/
+
+# Archivos de compilación
+dist/
+build/
+*.egg-info/

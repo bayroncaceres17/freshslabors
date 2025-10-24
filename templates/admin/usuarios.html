@@ -1,0 +1,342 @@
+{% extends "admin/base.html" %}
+{% block title %}Usuarios · Administración{% endblock %}
+{% block content %}
+
+<style>
+  .shadow-soft{ box-shadow: 0 10px 24px rgba(27,55,130,.08); }
+  .card-soft{ background: var(--bs-body-bg); border:1px solid var(--border, #e9ecf8); border-radius:16px; }
+  [data-bs-theme="dark"] .card-soft{ border-color: rgba(255,255,255,.08); }
+  [data-bs-theme="dark"] .shadow-soft{ box-shadow: 0 10px 24px rgba(0,0,0,.4); }
+  .mini { color: var(--bs-secondary-color); font-size:.9rem; }
+  .role-badge { text-transform: capitalize; }
+  .table thead th { font-weight:600; letter-spacing:.2px; }
+</style>
+
+<div class="d-flex align-items-center justify-content-between mb-3">
+  <div class="d-flex align-items-center gap-2">
+    <i class="bi bi-people-gear"></i>
+    <h4 class="mb-0">Usuarios del Sistema</h4>
+  </div>
+  <a class="btn btn-outline-secondary btn-sm" href="{{ url_for('admin_system') }}">
+    <i class="bi bi-arrow-left me-1"></i> Volver a Administración
+  </a>
+</div>
+
+<!-- Mini ayuda -->
+<div class="card card-soft shadow-soft p-3 mb-4">
+  <div class="d-flex flex-wrap align-items-center gap-3">
+    <span class="mini"><i class="bi bi-info-circle me-1"></i> Administra administradores, superadmins y supervisores.</span>
+    <span class="mini">Solo <b>superadmin</b> puede <u>crear</u>, <u>cambiar roles</u>, <u>editar acceso</u> y <u>eliminar</u>.</span>
+  </div>
+</div>
+
+<div class="row g-4">
+  <!-- Alta rápida (solo Superadmin) -->
+  {% if current_user.rol == 'superadmin' %}
+  <div class="col-lg-5">
+    <div class="card card-soft shadow-soft">
+      <div class="p-3 border-bottom d-flex align-items-center gap-2">
+        <i class="bi bi-person-plus"></i><b>Crear nuevo usuario</b>
+      </div>
+      <div class="p-3">
+        <form id="crearUsuarioForm" method="post" action="{{ url_for('admin_usuarios_crear') }}" class="row g-3" novalidate>
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="col-12">
+            <label class="form-label">Nombre completo</label>
+            <input name="nombre" class="form-control" placeholder="Ej. Ana Pérez" required>
+          </div>
+
+          <div class="col-sm-6">
+            <label class="form-label">Email</label>
+            <input name="email" type="email" class="form-control" placeholder="ana@empresa.com">
+            <div class="form-text mini">Si lo dejas vacío, no se usará email para login.</div>
+          </div>
+
+          <div class="col-sm-6">
+            <label class="form-label">Teléfono</label>
+            <input
+              name="telefono"
+              type="tel"
+              class="form-control"
+              placeholder="+57 300 123 4567"
+              pattern="^\+(1|56|57)\d{7,14}$"
+              title="Incluye prefijo internacional válido: +1, +56 o +57, seguido solo de dígitos"
+              required>
+            <div class="form-text mini">
+              Obligatorio con prefijo: <b>+1</b>, <b>+56</b> o <b>+57</b>. Ej.: <code>+573001234567</code>
+            </div>
+            <div class="invalid-feedback">Teléfono inválido. Usa +1, +56 o +57 y solo dígitos.</div>
+          </div>
+
+          <div class="col-sm-6">
+            <label class="form-label">Rol</label>
+            <select name="rol" class="form-select">
+              <option value="admin">admin</option>
+              <option value="superadmin">superadmin</option>
+              <option value="supervisor">supervisor</option>
+              <option value="empleado">empleado</option>
+            </select>
+          </div>
+
+          <div class="col-sm-6">
+            <label class="form-label">Contraseña</label>
+            <input name="password" type="password" class="form-control" placeholder="Mín. 6 caracteres" required>
+            <div class="form-text mini"><i class="bi bi-shield-lock me-1"></i> La contraseña aplica a staff. Empleados usan OTP.</div>
+          </div>
+
+          <div class="col-12">
+            <button class="btn btn-primary w-100" id="btnCrearUsuario">
+              <i class="bi bi-save me-1"></i> Crear usuario
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
+  <!-- Listado y gestión -->
+  <div class="{% if current_user.rol == 'superadmin' %}col-lg-7{% else %}col-12{% endif %}">
+    <div class="card card-soft shadow-soft">
+      <div class="p-3 border-bottom d-flex align-items-center justify-content-between">
+        <div class="d-flex align-items-center gap-2">
+          <i class="bi bi-people"></i><b>Listado de usuarios</b>
+        </div>
+        <div class="mini">Filtra por nombre, email o rol</div>
+      </div>
+      <div class="p-3">
+        <!-- Buscador -->
+        <div class="input-group mb-3">
+          <span class="input-group-text"><i class="bi bi-search"></i></span>
+          <input id="q" type="text" class="form-control" placeholder="Buscar...">
+        </div>
+
+        <div class="table-responsive">
+          <table class="table align-middle" id="usersTable">
+            <thead class="table-light">
+              <tr>
+                <th>Usuario</th>
+                <th>Rol</th>
+                <th>Último acceso</th>
+                <th>Estado</th>
+                <th class="text-end">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {% for u in usuarios %}
+              {% if u.rol in ('admin','superadmin','supervisor') %}
+              <tr data-k="{{ (u.nombre ~ ' ' ~ (u.email or '') ~ ' ' ~ (u.telefono or '') ~ ' ' ~ u.rol)|lower }}">
+                <td>
+                  <div class="fw-semibold text-truncate">{{ u.nombre }}</div>
+                  <div class="text-muted small text-truncate">{{ u.email or u.telefono or '—' }}</div>
+                </td>
+                <td><span class="badge text-bg-light role-badge">{{ u.rol }}</span></td>
+                <td class="text-muted small">
+                  {{ u.last_login.strftime("%Y-%m-%d %H:%M") if u.last_login else "—" }}
+                </td>
+                <td>
+                  <span class="badge {{ 'text-bg-success' if u.activo else 'text-bg-secondary' }}">
+                    {{ 'Activo' if u.activo else 'Inactivo' }}
+                  </span>
+                </td>
+                <td class="text-end">
+                  {% if current_user.rol == 'superadmin' %}
+                  <div class="d-inline-flex gap-2 flex-wrap">
+                    <!-- Cambiar rol -->
+                    <form method="post" action="{{ url_for('admin_usuarios_cambiar_rol', uid=u.id) }}" class="d-flex gap-2 align-items-center">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <select name="rol" class="form-select form-select-sm w-auto">
+                        <option value="admin" {{ 'selected' if u.rol=='admin' }}>admin</option>
+                        <option value="superadmin" {{ 'selected' if u.rol=='superadmin' }}>superadmin</option>
+                        <option value="supervisor" {{ 'selected' if u.rol=='supervisor' }}>supervisor</option>
+                        <option value="empleado" {{ 'selected' if u.rol=='empleado' }}>empleado</option>
+                      </select>
+                      <button class="btn btn-outline-primary btn-sm" title="Guardar rol">
+                        <i class="bi bi-save"></i>
+                      </button>
+                    </form>
+
+                    <!-- Editar acceso (email/teléfono/contraseña) -->
+                    <button
+                      type="button"
+                      class="btn btn-outline-dark btn-sm"
+                      data-bs-toggle="modal"
+                      data-bs-target="#editarAccesoModal"
+                      data-id="{{ u.id }}"
+                      data-nombre="{{ u.nombre|e }}"
+                      data-email="{{ u.email or '' }}"
+                      data-telefono="{{ u.telefono or '' }}">
+                      <i class="bi bi-key"></i> Acceso
+                    </button>
+
+                    <!-- Activar/Desactivar -->
+                    <form method="post" action="{{ url_for('admin_usuarios_toggle_activo', uid=u.id) }}">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button class="btn btn-outline-secondary btn-sm" title="Activar/Desactivar">
+                        <i class="bi {{ 'bi-toggle-on' if u.activo else 'bi-toggle-off' }}"></i>
+                      </button>
+                    </form>
+
+                    <!-- Eliminar (no permitir eliminar superadmin) -->
+                    {% if u.rol != 'superadmin' %}
+                    <form method="post" action="{{ url_for('admin_usuarios_eliminar', uid=u.id) }}" onsubmit="return confirm('¿Eliminar usuario definitivamente?');">
+                      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                      <button class="btn btn-outline-danger btn-sm" title="Eliminar">
+                        <i class="bi bi-trash"></i>
+                      </button>
+                    </form>
+                    {% endif %}
+                  </div>
+                  {% else %}
+                  <span class="text-muted small">Solo lectura</span>
+                  {% endif %}
+                </td>
+              </tr>
+              {% endif %}
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal EDITAR ACCESO (pequeño) -->
+<div class="modal fade" id="editarAccesoModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-sm">
+    <div class="modal-content card-soft">
+      <div class="modal-header">
+        <h6 class="modal-title d-flex align-items-center gap-2">
+          <i class="bi bi-key"></i> Editar acceso
+        </h6>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+      </div>
+
+      <form id="editarAccesoForm" method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="modal-body">
+          <div class="mb-2 mini text-muted" id="eaNombre">Usuario</div>
+
+          <div class="mb-2">
+            <label class="form-label small">Email</label>
+            <input name="email" type="email" class="form-control" placeholder="usuario@empresa.com">
+          </div>
+
+          <div class="mb-2">
+            <label class="form-label small">Teléfono</label>
+            <input
+              name="telefono"
+              type="tel"
+              class="form-control"
+              placeholder="+573001234567"
+              pattern="^\+(1|56|57)\d{7,14}$"
+              title="Incluye prefijo +1, +56 o +57 y solo dígitos">
+            <div class="form-text mini">Ej.: <code>+573001234567</code></div>
+          </div>
+
+          <div class="mb-1">
+            <label class="form-label small">Nueva contraseña</label>
+            <input name="password" type="password" class="form-control" placeholder="Dejar vacío para no cambiar">
+          </div>
+          <div class="form-text mini">Si dejas la contraseña vacía, no se modifica.</div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn btn-primary btn-sm">
+            <i class="bi bi-save me-1"></i> Guardar
+          </button>
+          <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-dismiss="modal">Cerrar</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Scripts -->
+<script>
+  // Filtro rápido de búsqueda
+  (function(){
+    const q = document.getElementById('q');
+    const rows = Array.from(document.querySelectorAll('#usersTable tbody tr'));
+    q?.addEventListener('input', function(){
+      const term = (this.value || '').toLowerCase().trim();
+      rows.forEach(tr=>{
+        const k = tr.getAttribute('data-k') || '';
+        tr.style.display = k.includes(term) ? '' : 'none';
+      });
+    });
+  })();
+
+  // Validación teléfono (crear): prefijo obligatorio + normalización
+  (function(){
+    const form = document.getElementById('crearUsuarioForm');
+    if(!form) return;
+    const tel = form.querySelector('input[name="telefono"]');
+    const btn = document.getElementById('btnCrearUsuario');
+
+    function normalize(v){ return (v||'').replace(/[\s-]/g,''); }
+    function isValid(v){ return /^\+(1|56|57)\d{7,14}$/.test(v); }
+
+    function liveCheck(){
+      const norm = normalize(tel.value);
+      const ok = isValid(norm);
+      tel.classList.toggle('is-invalid', !ok && tel.value.length>0);
+      if(btn) btn.disabled = !ok;
+    }
+
+    tel?.addEventListener('input', liveCheck);
+    liveCheck();
+
+    form.addEventListener('submit', (e)=>{
+      const norm = normalize(tel.value);
+      if(!isValid(norm)){
+        e.preventDefault();
+        tel.classList.add('is-invalid');
+        alert('Teléfono inválido: usa +1, +56 o +57 y solo dígitos.');
+        return;
+      }
+      tel.value = norm; // enviar normalizado
+    });
+  })();
+
+  // Modal EDITAR ACCESO – set action + relleno
+  (function(){
+    const modalEl = document.getElementById('editarAccesoModal');
+    if(!modalEl) return;
+    modalEl.addEventListener('show.bs.modal', (ev)=>{
+      const btn = ev.relatedTarget;
+      const uid = btn?.getAttribute('data-id');
+      const nombre = btn?.getAttribute('data-nombre') || '';
+      const email = btn?.getAttribute('data-email') || '';
+      const telefono = btn?.getAttribute('data-telefono') || '';
+
+      const form = document.getElementById('editarAccesoForm');
+      // Endpoint sugerido: /admin/usuarios/<uid>/credenciales
+      form.action = "{{ url_for('admin_usuarios_actualizar_credenciales', uid=0) }}".replace('/0', '/' + uid);
+
+      form.querySelector('[name=email]').value = email;
+      form.querySelector('[name=telefono]').value = telefono;
+      form.querySelector('[name=password]').value = '';
+      document.getElementById('eaNombre').textContent = nombre || 'Usuario';
+    });
+
+    // Normalizar teléfono antes de enviar
+    const form = document.getElementById('editarAccesoForm');
+    form?.addEventListener('submit', (e)=>{
+      const tel = form.querySelector('[name=telefono]');
+      if(tel && tel.value){
+        tel.value = (tel.value||'').replace(/[\s-]/g,'');
+        const ok = /^\+(1|56|57)\d{7,14}$/.test(tel.value);
+        if(!ok){
+          e.preventDefault();
+          alert('Teléfono inválido. Usa +1, +56 o +57 y solo dígitos.');
+          tel.focus();
+        }
+      }
+    });
+  })();
+</script>
+
+{% endblock %}

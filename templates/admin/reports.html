@@ -1,0 +1,77 @@
+{% extends "admin/base.html" %}
+{% block title %}Informes{% endblock %}   {# o Control de Horas #}
+{% block content %}
+<div class="card card-soft shadow-soft p-3">
+  <!-- tu contenido existente aquí, solo asegúrate de usar .row/.col, .table, .btn, etc. -->
+
+<h1 class="text-2xl font-bold mb-4">Informes</h1>
+
+<form method="get" class="bg-white p-4 rounded-2xl card mb-4 grid md:grid-cols-5 gap-2">
+  <input type="date" name="fecha" value="{{ request.args.get('fecha','') }}" class="border rounded-lg px-2 py-2">
+  <select name="tarea_id" class="border rounded-lg px-2 py-2">
+    <option value="">Todas las tareas</option>
+    {% for t in tareas %}
+    <option value="{{ t.id }}" {{ 'selected' if request.args.get('tarea_id')==t.id|string }}>{{ t.nombre }}</option>
+    {% endfor %}
+  </select>
+  <select name="usuario_id" class="border rounded-lg px-2 py-2">
+    <option value="">Todos los empleados</option>
+    {% for u in usuarios %}
+    <option value="{{ u.id }}" {{ 'selected' if request.args.get('usuario_id')==u.id|string }}>{{ u.nombre }}</option>
+    {% endfor %}
+  </select>
+  <select name="tab" class="border rounded-lg px-2 py-2">
+    <option value="tareas" {{ 'selected' if tipo_tab=='tareas' }}>Por tareas</option>
+    <option value="empleados" {{ 'selected' if tipo_tab=='empleados' }}>Por empleados</option>
+  </select>
+  <button class="px-3 py-2 rounded-lg bg-blue-600 text-white">Aplicar</button>
+</form>
+
+<div class="bg-white rounded-2xl card overflow-x-auto">
+  <table class="min-w-full text-sm">
+    <thead class="bg-slate-50 text-slate-600 text-xs">
+      <tr>
+        <th class="text-left p-3">Fecha</th>
+        <th class="text-left p-3">Empleado</th>
+        <th class="text-left p-3">Tarea (ID)</th>
+        <th class="text-left p-3">Tipo</th>
+        <th class="text-left p-3">Window OK</th>
+        <th class="text-left p-3">GPS</th>
+        <th class="text-left p-3">Foto</th>
+        <th class="text-left p-3">Acción</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in reportes %}
+      <tr class="border-t">
+        <td class="p-3">{{ r.timestamp.strftime('%Y-%m-%d %H:%M') }}</td>
+        <td class="p-3">{{ r.usuario.nombre }}</td>
+        <td class="p-3">{{ r.tarea.nombre }} ({{ r.tarea_id }})</td>
+        <td class="p-3">{{ r.tipo }}</td>
+        <td class="p-3">
+          <span class="px-2 py-1 rounded text-xs {{ 'bg-emerald-100 text-emerald-700' if r.valido else 'bg-rose-100 text-rose-700' }}">{{ 'Sí' if r.valido else 'No' }}</span>
+        </td>
+        <td class="p-3">{{ r.gps or '—' }}</td>
+        <td class="p-3 text-slate-400 text-xs">thumb</td>
+        <td class="p-3">
+          <form method="post" action="{{ url_for('generar_pdf') }}" class="inline">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+
+            <button class="text-purple-700 underline">PDF</button>
+          </form>
+          <form method="post" action="{{ url_for('admin_warnings') }}" class="inline ml-2">
+             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+
+            <button class="text-rose-700 underline">Sancionar</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td class="p-3 text-slate-500" colspan="8">Sin reportes.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}

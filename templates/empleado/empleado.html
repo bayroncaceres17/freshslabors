@@ -1,0 +1,298 @@
+{% extends "empleado/base_empleado.html" %}
+
+{% block title %}Mis tareas · Empleado{% endblock %}
+
+{% block styles %}
+<style>
+  :root{
+    --ink: var(--bs-body-color);
+    --muted: var(--bs-secondary-color);
+    --card-bg: var(--bs-tertiary-bg);
+    --card-bd: var(--bs-border-color-translucent);
+    --soft: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 40%);
+    --hover: color-mix(in oklab, var(--bs-body-bg), var(--bs-tertiary-bg) 25%);
+    --ok: #16a34a;
+    --danger: #ef4444;
+    --brand: var(--bs-primary);
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --card-bg:#0b1324;
+      --card-bd: rgba(255,255,255,.06);
+      --soft:#0f1a33;
+      --hover:#0e1730;
+    }
+  }
+  .page-head{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .badge-soft{background:var(--soft);border:1px solid var(--card-bd);padding:.4rem .6rem;border-radius:999px;color:var(--muted)}
+  .emp-card{background:var(--card-bg);border:1px solid var(--card-bd);border-radius:14px;}
+  .emp-card:hover{background:var(--hover);}
+  .t-sub{color:var(--muted);font-size:.92rem}
+  .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--card-bd);background:var(--soft);
+    padding:.25rem .6rem;border-radius:999px;font-size:.85rem;color:var(--muted);}
+  .btn-brand{background:var(--brand);color:#fff;border:none}
+  .btn-brand:hover{opacity:.9}
+  .btn-ghost{background:transparent;border:1px solid var(--card-bd);color:var(--ink)}
+  .btn-ghost:hover{background:var(--soft)}
+  .state-line{font-size:.86rem}
+  .state-late{color:var(--danger)}
+  .code{font-family:ui-monospace,Menlo,Consolas,monospace;}
+  .tuto-card{background:var(--card-bg);border:1px solid var(--card-bd);border-radius:14px;}
+  .tuto-card ol{padding-left:1.1rem;}
+  .tuto-card li{margin:.45rem 0;}
+  @media (min-width:992px){.tuto-sticky{position:sticky;top:84px;}}
+  .tuto-mobile summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;font-weight:600;}
+  .tuto-mobile summary::-webkit-details-marker{display:none;}
+  .tuto-mobile details{border:1px solid var(--card-bd);border-radius:14px;background:var(--soft);padding:10px 12px;}
+  .tuto-mobile ol{padding-left:1rem;margin-top:.5rem;}
+</style>
+{% endblock %}
+
+{% block emp_content %}
+<div class="page-head mb-3">
+  <h3 class="mb-0">Mis tareas activas</h3>
+  <div class="d-flex align-items-center gap-2 flex-wrap">
+    <span class="badge badge-soft"><i class="bi bi-calendar3"></i> {{ current_date_us or '' }}</span>
+    <span class="badge badge-soft" id="liveClock"><i class="bi bi-clock"></i> --:--:--</span>
+    <span class="badge badge-soft" id="deviceTZ"><i class="bi bi-globe"></i> —</span>
+  </div>
+</div>
+
+{% if items and items|length %}
+<div class="row g-3">
+  <aside class="col-12 col-lg-4 order-0 order-lg-0">
+    <!-- (tutoriales igual) -->
+    <div class="tuto-mobile d-lg-none mb-2">
+      <details>
+        <summary><i class="bi bi-mortarboard text-warning"></i> ¿Cómo funciona? (tocar para abrir)</summary>
+        <ol class="ps-3 mt-2">
+          <li><b>Confirmar asistencia</b>: se habilita <u>3 h antes</u> del inicio; si confirmas luego, queda <b>tarde</b>.</li>
+          <li><b>Reporte de asistencia</b>: pide foto + GPS <u>30 min antes</u> hasta <u>20 min después</u>.</li>
+          <li><b>Lunch</b>: marca <b>Sí</b> (con foto) o <b>No</b>.</li>
+          <li><b>Informes</b>: se envían a horas fijas; si te retrasas, se marca como <b>retardo</b>.</li>
+        </ol>
+        <div class="t-sub mt-2"><i class="bi bi-info-circle"></i> Horas según zona local de la tarea.</div>
+      </details>
+    </div>
+    <div class="tuto-card p-3 tuto-sticky d-none d-lg-block">
+      <div class="d-flex align-items-center gap-2 mb-2">
+        <i class="bi bi-mortarboard fs-5 text-warning"></i>
+        <h6 class="mb-0">¿Cómo funciona?</h6>
+      </div>
+      <ol class="ps-3">
+        <li><b>Confirmar asistencia</b>: se habilita <u>3 h antes</u> del inicio; si confirmas luego, queda <b>tarde</b>.</li>
+        <li><b>Reporte de asistencia</b>: pide foto + GPS <u>30 min antes</u> hasta <u>20 min después</u>.</li>
+        <li><b>Lunch</b>: marca <b>Sí</b> (con foto) o <b>No</b>.</li>
+        <li><b>Informes</b>: se envían a horas fijas; si te retrasas, se marca como <b>retardo</b>.</li>
+      </ol>
+      <div class="t-sub mt-2"><i class="bi bi-info-circle"></i> Horas según zona local de la tarea.</div>
+    </div>
+  </aside>
+
+  <div class="col-12 col-lg-8 order-1 order-lg-1">
+    <div id="task-list">
+    {% for it in items %}
+      {% set t = it.tarea %}
+      {% set a = it.asign %}
+      {% set hechos = it.completados|int %}
+      {% set total = it.esperados|int %}
+      {% set can_confirm = it.can_confirm if it.can_confirm is defined else false %}
+      {% set minutes_late = it.minutes_late if it.minutes_late is defined else 0 %}
+      {% set ya_confirmada = it.ya_confirmada if it.ya_confirmada is defined else (a.confirmado if a.confirmado is defined else false) %}  {# ← por si ya lo calculas server #}
+      {% set disabled_today = it.disabled_today if it.disabled_today is defined else false %}
+      {% set next_start_in_min = it.next_start_in_min if it.next_start_in_min is defined else 0 %}
+
+      <div class="emp-card p-3 mb-3"
+           data-last-activity="{{ it.last_activity | tojson }}"
+           data-start="{{ t.fecha_inicio ~ 'T' ~ t.hora_inicio }}">
+        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+          <div class="me-2 flex-grow-1 min-w-0">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+              <span class="h5 mb-0 text-truncate">{{ t.nombre }}</span>
+              {% if t.prioridad %}
+                <span class="chip"><i class="bi bi-exclamation-octagon"></i> {{ t.prioridad }}</span>
+              {% endif %}
+              {% if t.tz_name %}
+                <span class="chip"><i class="bi bi-globe-americas"></i> {{ t.tz_name }}</span>
+              {% endif %}
+            </div>
+
+            <div class="t-sub mt-1"><i class="bi bi-calendar2-week me-1"></i><b>Fecha:</b> {{ t.fecha_inicio or '—' }} · <i class="bi bi-clock-history me-1"></i><b>Hora:</b> {{ t.hora_inicio or '—' }}</div>
+            <div class="t-sub mt-1"><i class="bi bi-geo-alt me-1"></i><b>Ubicación:</b> {{ t.ubicacion or '—' }}</div>
+            {% if a.turno_num %}
+              <div class="t-sub mt-1"><i class="bi bi-arrow-repeat me-1"></i><b>Turno:</b> {{ a.turno_num }}</div>
+            {% endif %}
+            {% if a.hora_inicio_override %}
+              <div class="t-sub mt-1"><i class="bi bi-person-walking me-1"></i><b>Entrada:</b> {{ a.hora_inicio_override }}</div>
+            {% endif %}
+          </div>
+
+          <div class="text-end">
+            <div class="fw-semibold"><i class="bi bi-clipboard2-check me-1"></i> Informes: <span class="{{ 'text-success' if hechos>=total and total>0 else '' }}">{{ hechos }}</span> / {{ total }}</div>
+            <div class="mt-2 d-flex justify-content-end gap-2">
+              {% if ya_confirmada %}
+                <button class="btn btn-success btn-sm" disabled><i class="bi bi-check2-all me-1"></i> Asistencia confirmada</button>
+              {% else %}
+                <button class="btn btn-brand btn-sm"
+                        data-confirmar data-tarea-id="{{ t.id }}"
+                        {% if not can_confirm or disabled_today %}disabled{% endif %}>
+                  <i class="bi bi-check2-circle me-1"></i> Confirmar asistencia
+                </button>
+              {% endif %}
+
+              {# ✱ CAMBIO: bloquear Ir a reportar hasta confirmar #}
+              <a class="btn btn-ghost btn-sm btn-go-reportes{% if disabled_today or not ya_confirmada %} disabled{% endif %}"
+                 {% if disabled_today or not ya_confirmada %}aria-disabled="true" tabindex="-1"
+                    title="{{ 'Confirma tu asistencia primero' if not ya_confirmada else 'Jornada cerrada por hoy' }}"
+                 {% endif %}
+                 href="{{ url_for('empleado_tarea', tid=t.id) }}">
+                <i class="bi bi-journal-text me-1"></i> Ir a reportar
+              </a>
+            </div>
+
+            {% if disabled_today %}
+              <div class="state-line mt-1 d-flex align-items-center justify-content-end gap-1" style="color:var(--muted)">
+                <i class="bi bi-moon-stars"></i> Jornada cerrada por hoy
+                {% if next_start_in_min and next_start_in_min > 0 %}
+                  · inicia en <span class="hm" data-minutes="{{ next_start_in_min|int }}">—</span>
+                {% endif %}
+              </div>
+            {% elif minutes_late and minutes_late>0 %}
+              <div class="state-line mt-1 state-late d-flex align-items-center justify-content-end gap-1">
+                <i class="bi bi-alarm"></i> Vas <span class="hm" data-minutes="{{ minutes_late|int }}">—</span> tarde
+              </div>
+            {% elif can_confirm and not ya_confirmada %}
+              <div class="state-line mt-1 d-flex align-items-center justify-content-end gap-1" style="color:var(--muted)">
+                <i class="bi bi-hourglass-split"></i> Confirmación habilitada
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+    </div>
+  </div>
+</div>
+{% else %}
+  <div class="alert alert-info mb-0">No tienes tareas activas asignadas hoy.</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  // ---------- Reloj en vivo ----------
+  const liveClock = document.getElementById('liveClock');
+  function tick(){
+    const now = new Date();
+    if (liveClock) liveClock.innerHTML =
+      '<i class="bi bi-clock"></i> ' +
+      now.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit', second:'2-digit', hour12:false});
+  }
+  tick(); setInterval(tick, 1000);
+
+  // ---------- Zona del dispositivo ----------
+  const deviceTZ = document.getElementById('deviceTZ');
+  try{
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'Local';
+    if (deviceTZ) deviceTZ.innerHTML = '<i class="bi bi-globe"></i> ' + tz;
+  }catch(e){
+    if (deviceTZ) deviceTZ.innerHTML = '<i class="bi bi-globe"></i> Local';
+  }
+
+  // ---------- Formatear minutos ----------
+  function formatHM(mins){
+    if (typeof mins !== 'number' || !isFinite(mins) || mins < 0) return '0 min';
+    const h = Math.floor(mins / 60);
+    const m = Math.floor(mins % 60);
+    if (h >= 1) return m ? `${h} h ${m} min` : `${h} h`;
+    return `${m} min`;
+  }
+  document.querySelectorAll('.hm[data-minutes]').forEach(el=>{
+    const v = Number(el.getAttribute('data-minutes'));
+    el.textContent = formatHM(v);
+  });
+
+  // ---------- Ordenar por actividad ----------
+  const list = document.getElementById('task-list');
+  if (list) {
+    const cards = Array.from(list.querySelectorAll('.emp-card'));
+    const parseTS = (v) => {
+      if (!v) return NaN;
+      const norm = v.includes('T') ? v : v.replace(' ', 'T');
+      const t = Date.parse(norm);
+      return isNaN(t) ? NaN : t;
+    };
+    cards.sort((a,b)=>{
+      const ta = parseTS(a.getAttribute('data-last-activity') || a.getAttribute('data-start'));
+      const tb = parseTS(b.getAttribute('data-last-activity') || b.getAttribute('data-start'));
+      if (isNaN(ta) && isNaN(tb)) return 0;
+      if (isNaN(ta)) return 1;
+      if (isNaN(tb)) return -1;
+      return tb - ta;
+    });
+    cards.forEach(c=>list.appendChild(c));
+  }
+
+  // ---------- Confirmar asistencia ----------
+  const CSRF = document.querySelector('meta[name="csrf-token"]')?.content || null;
+
+  document.querySelectorAll('[data-confirmar]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const tid = btn.dataset.tareaId;
+      if (!tid) return;
+      const orig = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Enviando...';
+      try {
+        const headers = {'Content-Type':'application/json'};
+        if (CSRF) headers['X-CSRFToken'] = CSRF;
+
+        const res = await fetch('/api/empleado/confirmar-tarea', {
+          method:'POST',
+          headers,
+          credentials:'same-origin',
+          body:JSON.stringify({tarea_id:Number(tid)})
+        });
+
+        const text = await res.text();
+        let data; try{ data = JSON.parse(text); }catch{ data=null; }
+
+        if(!res.ok || !data || !data.ok){
+          (window.empToast||alert)(data?.error || 'No se pudo confirmar.');
+          btn.disabled=false; btn.innerHTML=orig; return;
+        }
+
+        // Botón confirmado
+        btn.classList.remove('btn-brand');
+        btn.classList.add('btn-success');
+        btn.disabled = true;
+        btn.innerHTML = '<i class="bi bi-check2-all me-1"></i> Asistencia confirmada';
+        (window.empToast||alert)(data.msg || 'Asistencia confirmada.');
+
+        // ✱ CAMBIO: habilitar "Ir a reportar" en la misma card
+        const card = btn.closest('.emp-card');
+        const goBtn = card?.querySelector('.btn-go-reportes');
+        if (goBtn){
+          goBtn.classList.remove('disabled');
+          goBtn.removeAttribute('aria-disabled');
+          goBtn.removeAttribute('tabindex');
+          goBtn.removeAttribute('title');
+        }
+
+        // Reordenar por actividad reciente
+        if (card) {
+          card.setAttribute('data-last-activity', new Date().toISOString());
+          const parent = card.parentElement;
+          parent.insertBefore(card, parent.firstChild);
+        }
+      }catch(e) {
+        console.error(e);
+        (window.empToast||alert)('Error de red o sesión expirada.');
+        btn.disabled=false; btn.innerHTML=orig;
+      }
+    });
+  });
+});
+</script>
+{% endblock %}

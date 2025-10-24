@@ -1,0 +1,30 @@
+{# Requiere: page, per_page, total, endpoint_url, base_qs #}
+{% set last_page = (total // per_page) + (1 if total % per_page else 0) %}
+{% if last_page < 1 %}{% set last_page = 1 %}{% endif %}
+
+<nav aria-label="Paginación" class="mt-3">
+  <ul class="pagination">
+    {# Prev #}
+    <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+      {% set prev = page - 1 %}
+      <a class="page-link"
+         href="{{ endpoint_url }}{% if base_qs %}?{{ base_qs }}&page={{ prev }}{% else %}?page={{ prev }}{% endif %}">
+        Anterior
+      </a>
+    </li>
+
+    {# Página actual / total (simple) #}
+    <li class="page-item disabled">
+      <span class="page-link">Página {{ page }} de {{ last_page }}</span>
+    </li>
+
+    {# Next #}
+    <li class="page-item {% if page >= last_page %}disabled{% endif %}">
+      {% set next = page + 1 %}
+      <a class="page-link"
+         href="{{ endpoint_url }}{% if base_qs %}?{{ base_qs }}&page={{ next }}{% else %}?page={{ next }}{% endif %}">
+        Siguiente
+      </a>
+    </li>
+  </ul>
+</nav>

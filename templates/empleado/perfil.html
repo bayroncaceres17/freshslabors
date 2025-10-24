@@ -1,0 +1,22 @@
+{% extends "empleado/base_empleado.html" %}
+{% block title %}Mi perfil · Empleado{% endblock %}
+
+{% block emp_content %}
+<h5 class="mb-3">Mi perfil</h5>
+
+<form method="post" class="row g-3" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="col-12 col-md-6">
+    <label class="form-label">Correo electrónico</label>
+    <input type="email" class="form-control" name="email"
+           value="{{ (current_user.email or '') }}" placeholder="tu@correo.com">
+    <div class="form-text">Opcional. Déjalo vacío para quitar el correo.</div>
+  </div>
+
+  <div class="col-12">
+    <button class="btn btn-brand" type="submit">
+      <i class="bi bi-save me-1"></i> Guardar
+    </button>
+  </div>
+</form>
+{% endblock %}

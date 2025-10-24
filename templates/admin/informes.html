@@ -1,0 +1,704 @@
+{% extends "admin/base.html" %}
+{% block title %}Informes{% endblock %}
+{% block content %}
+
+<style>
+  :root{ --panel-bg: var(--bs-body-bg); --panel-br: var(--bs-border-color-translucent); }
+  @media (prefers-color-scheme: dark){
+    :root{ --panel-bg:#0f172a; --panel-br: rgba(255,255,255,.08); }
+  }
+
+  .inf-wrap{max-width:1200px;margin:0 auto;padding:8px 12px}
+  .topbar{display:flex;justify-content:space-between;align-items:center;margin:.5rem 0 1rem}
+  .layout{display:grid;grid-template-columns:280px 1fr;gap:18px}
+  @media (max-width: 992px){ .layout{grid-template-columns:1fr} }
+
+  .callout{background:var(--panel-bg);border:1px solid var(--panel-br);border-radius:14px;padding:14px 16px}
+  .callout h6{display:flex;align-items:center;gap:.45rem;margin:0 0 .35rem;font-weight:700}
+  .callout ul{margin:0;padding-left:1.2rem}
+  .callout li{margin:.35rem 0}
+
+  .filters{background:var(--panel-bg);border:1px solid var(--panel-br);border-radius:14px;padding:12px}
+  .filters-grid{display:grid;gap:.6rem;grid-template-columns: 1fr repeat(4,160px) auto}
+  @media (max-width:1200px){ .filters-grid{grid-template-columns:1fr 1fr 1fr} }
+  @media (max-width:768px){ .filters-grid{grid-template-columns:1fr} }
+  .form-floating>.form-control, .form-floating>.form-select{height:40px;padding-top:1.25rem;padding-bottom:.35rem}
+  .form-floating>label{padding:.45rem .75rem;font-size:.85rem}
+  .filters .search { grid-column: 1 / -1; }
+
+  .btn-toggle{ display:flex; gap:.5rem; align-items:center; flex-wrap:wrap; }
+  .btn-toggle .btn{
+    --bs-btn-padding-y:.35rem; --bs-btn-padding-x:.6rem; --bs-btn-font-size:.85rem;
+    border-radius:10px; min-width:110px;
+  }
+  @media (max-width: 768px){ .btn-toggle .btn{ min-width:unset; flex:1 } }
+
+  #exportTop.btn, #exportSide.btn { padding:.35rem .6rem; border-radius:10px; }
+  #exportSide{ display:none; }
+  @media (max-width: 768px){
+    #exportSide{ display:inline-flex; }
+    #exportTop{ display:none; }
+  }
+  .btn-export.btn-danger{ background-color:#d01d2e; border-color:#c21a2a; color:#fff; }
+  .btn-export.btn-danger:hover{ background-color:#bb1827; border-color:#a91523; }
+
+  #cardsContainer{min-height:140px;margin-top:12px}
+
+  /* Modal (detalles) */
+  .list-clean{list-style:none;padding:0;margin:0}
+  .list-clean>li{border:1px solid var(--bs-border-color-translucent);border-radius:10px;padding:10px;margin-bottom:8px}
+  .badge-dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:.35rem}
+  .bd-on{background:#22c55e} .bd-late{background:#f59e0b} .bd-fallo{background:#ef4444} .bd-pend{background:#94a3b8}
+  .foto-thumb{max-width:100%;border-radius:10px;border:1px solid var(--bs-border-color-translucent)}
+  .subtle{color:var(--bs-secondary-color)}
+  @media (prefers-color-scheme: dark){
+    .modal-content{ background:#0b1220; color:var(--bs-body-color); border:1px solid rgba(255,255,255,.06); }
+    .list-clean>li{ background:rgba(255,255,255,.03); border-color:rgba(255,255,255,.08); }
+  }
+  @media (max-width:576px){
+    .modal-dialog{ margin:.5rem; max-width:calc(100% - 1rem); }
+    .foto-thumb{ max-height:240px; object-fit:cover; }
+  }
+</style>
+
+<div class="inf-wrap">
+  <div class="topbar">
+    <h4 class="mb-0">Informes</h4>
+    <a id="exportTop" class="btn btn-danger btn-export" href="{{ url_for('admin_informes_semana_xlsx') }}" title="Exportar XLSX">
+      <i class="bi bi-file-earmark-spreadsheet me-1"></i><span class="d-none d-sm-inline">Exportar XLSX</span>
+    </a>
+  </div>
+
+  <div class="layout">
+    <aside>
+      <div class="callout">
+        <h6><i class="bi bi-lightbulb text-warning"></i> ¿Cómo usar <b>Informes</b>?</h6>
+        <ul class="small">
+          <li><b>Buscar</b> por tarea o empleado.</li>
+          <li><b>Estado</b>: Activas / Inactivas / Todas (por defecto <b>Activas</b>).</li>
+          <li><b>Tipo</b>: Común / Turnos / Emergencia.</li>
+          <li><b>Fechas</b>: rango opcional (desde / hasta).</li>
+          <li><b>Vista</b>: alterna entre <i>Tareas</i> y <i>Empleados</i>.</li>
+          <li>Abre una tarjeta para ver días, personas, informes y fotos.</li>
+        </ul>
+      </div>
+    </aside>
+
+    <section>
+      <div class="filters">
+        <div class="filters-grid align-items-end">
+          <div class="form-floating">
+            <select id="f_estado" class="form-select">
+              <option value="activa" selected>Activas</option>
+              <option value="inactiva">Inactivas</option>
+              <option value="todas">Todas</option>
+            </select>
+            <label for="f_estado">Estado</label>
+          </div>
+          <div class="form-floating">
+            <select id="f_tipo" class="form-select">
+              <option value="todas" selected>Todas</option>
+              <option value="comun">Común</option>
+              <option value="turnos">Turnos</option>
+              <option value="emergencia">Emergencia</option>
+            </select>
+            <label for="f_tipo">Tipo</label>
+          </div>
+          <div class="form-floating">
+            <input type="date" id="f_start" class="form-control">
+            <label for="f_start">Desde</label>
+          </div>
+          <div class="form-floating">
+            <input type="date" id="f_end" class="form-control">
+            <label for="f_end">Hasta</label>
+          </div>
+          <div class="btn-toggle" role="group" aria-label="Vista">
+            <button id="btnTareas" class="btn btn-outline-primary active" title="Tareas">
+              <i class="bi bi-briefcase"></i> <span class="d-none d-md-inline ms-1">Tareas</span>
+            </button>
+            <button id="btnEmps" class="btn btn-outline-primary" title="Empleados">
+              <i class="bi bi-people"></i> <span class="d-none d-md-inline ms-1">Empleados</span>
+            </button>
+          </div>
+          <div class="text-end">
+            <a id="exportSide" class="btn btn-danger btn-export" href="{{ url_for('admin_informes_semana_xlsx') }}" title="Exportar XLSX">
+              <i class="bi bi-file-earmark-spreadsheet"></i>
+            </a>
+          </div>
+          <div class="form-floating search">
+            <input type="text" id="f_q" class="form-control" placeholder="Buscar…">
+            <label for="f_q">Buscar tarea o empleado…</label>
+          </div>
+        </div>
+      </div>
+
+      <div id="cardsContainer">
+        {% include "admin/_informes_cards.html" %}
+      </div>
+    </section>
+  </div>
+</div>
+
+<!-- Modal reutilizable -->
+<div class="modal fade" id="infModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <button class="btn btn-sm btn-outline-secondary me-2" id="btnBack" style="display:none">
+          <i class="bi bi-arrow-left"></i>
+        </button>
+        <h5 class="modal-title" id="infModalTitle"></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="infModalBody">
+        <div class="text-center subtle py-3">Selecciona un elemento…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  const $ = s => document.querySelector(s);
+  const els = {
+    q: $('#f_q'), est: $('#f_estado'), tipo: $('#f_tipo'),
+    start: $('#f_start'), end: $('#f_end'),
+    t: $('#btnTareas'), e: $('#btnEmps'),
+    cont: $('#cardsContainer'),
+    exportTop: $('#exportTop'), exportSide: $('#exportSide')
+  };
+
+  const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || 'America/New_York';
+
+  let view = 'tareas';
+  let currentPage = 1;
+  const perPage = 10;
+
+  function buildQS(){
+    const p = new URLSearchParams();
+    const q = (els.q.value||'').trim();
+    if(q) p.set('q', q);
+    p.set('estado', els.est.value || 'activa');
+    p.set('tipo', els.tipo.value || 'todas');
+    if(els.start.value) p.set('start', els.start.value);
+    if(els.end.value)   p.set('end',   els.end.value);
+    p.set('view', view);
+    p.set('page', String(currentPage));
+    p.set('per_page', String(perPage));
+    p.set('tz', tz);
+    return p.toString();
+  }
+
+  function syncExportHref(){
+    const p = new URLSearchParams();
+    if(els.start.value) p.set('start', els.start.value);
+    if(els.end.value)   p.set('end',   els.end.value);
+    p.set('tz', tz);
+    const qs = p.toString();
+    const href = `{{ url_for('admin_informes_semana_xlsx') }}${qs?('?'+qs):''}`;
+    els.exportTop.href = href;
+    els.exportSide.href = href;
+  }
+
+  let timer;
+  async function reloadCards(){
+    clearTimeout(timer);
+    timer = setTimeout(async () => {
+      syncExportHref();
+      const html = await (await fetch(`/admin/informes/_cards?${buildQS()}`)).text();
+      els.cont.innerHTML = html;
+      attachDelegatedHandlers();
+    }, 160);
+  }
+
+  function attachDelegatedHandlers(){
+    els.cont.removeEventListener('click', _delegatedClick, true);
+    els.cont.addEventListener('click', _delegatedClick, true);
+  }
+  function _delegatedClick(ev){
+    const a = ev.target.closest('.js-page');
+    if(a){
+      ev.preventDefault();
+      const p = parseInt(a.dataset.page || '1', 10);
+      currentPage = Math.max(1, p);
+      reloadCards();
+      return;
+    }
+    const btnTask = ev.target.closest('.js-task');
+    if(btnTask){ openTask(btnTask.dataset.id, btnTask.dataset.nombre); return; }
+    const btnEmp = ev.target.closest('.js-emp');
+    if(btnEmp){ openEmp(btnEmp.dataset.id, btnEmp.dataset.nombre); return; }
+  }
+
+  [els.q, els.est, els.tipo, els.start, els.end].forEach(el=>{
+    el.addEventListener('input', ()=>{ currentPage = 1; reloadCards(); });
+    el.addEventListener('change', ()=>{ currentPage = 1; reloadCards(); });
+  });
+
+  els.t.addEventListener('click', ()=>{ view='tareas'; currentPage=1; els.t.classList.add('active'); els.e.classList.remove('active'); reloadCards(); });
+  els.e.addEventListener('click', ()=>{ view='empleados'; currentPage=1; els.e.classList.add('active'); els.t.classList.remove('active'); reloadCards(); });
+
+  els.est.value = 'activa';
+  syncExportHref();
+  attachDelegatedHandlers();
+
+  // ========= Modal =========
+  let _modal, _body, _title, _backBtn;
+  let _stack = [];
+
+  function setupModal(){
+    if(_modal) return;
+    _modal = new bootstrap.Modal(document.getElementById("infModal"));
+    _body  = document.getElementById("infModalBody");
+    _title = document.getElementById("infModalTitle");
+    _backBtn = document.getElementById("btnBack");
+    _backBtn.onclick = goBack;
+    document.getElementById("infModal").addEventListener("hidden.bs.modal", ()=>{
+      _stack = [];
+      _backBtn.style.display = "none";
+    });
+  }
+  function pushState(fn){
+    _stack.push(fn);
+    _backBtn.style.display = _stack.length>1 ? "inline-block" : "none";
+  }
+  function goBack(){
+    if(_stack.length<=1) return;
+    _stack.pop();
+    const last = _stack[_stack.length-1];
+    last && last();
+    _backBtn.style.display = _stack.length>1 ? "inline-block" : "none";
+  }
+  function spinner(){
+    _body.innerHTML = `<div class="text-center subtle py-4"><div class="spinner-border spinner-border-sm me-2"></div>Cargando…</div>`;
+  }
+  function estadoBadge(st){
+    const s = (st||'pending').toLowerCase();
+    if(s==="on_time") return `<span class="badge-dot bd-on"></span> A tiempo`;
+    if(s==="late")    return `<span class="badge-dot bd-late"></span> Retardo`;
+    if(s==="fail")    return `<span class="badge-dot bd-fallo"></span> Falló`;
+    return `<span class="badge-dot bd-pend"></span> Pendiente`;
+  }
+
+  // ===== TAREA → DÍAS
+  async function openTask(tid, name){
+    setupModal();
+    _modal.show();
+    _title.textContent = "Días · " + name;
+    spinner();
+    pushState(()=>openTask(tid, name));
+
+    const TZ = tz;
+    try{
+      const r = await fetch(`/admin/informes/api/task/${tid}/days?tz=${encodeURIComponent(TZ)}`);
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      const {days=[]} = await r.json();
+      if(!days.length){ _body.innerHTML = `<div class="text-center subtle">Sin días activos</div>`; return; }
+
+      const wrap = document.createElement("div");
+      days.forEach(d=>{
+        const b = document.createElement("button");
+        b.className = "btn btn-outline-primary w-100 mb-2";
+        b.textContent = d;
+        b.onclick = ()=>openPeople(tid, d, name);
+        wrap.appendChild(b);
+      });
+      _body.innerHTML = ""; _body.appendChild(wrap);
+    }catch(e){
+      console.error(e);
+      _body.innerHTML = `<div class="alert alert-danger">No se pudieron cargar los días.</div>`;
+    }
+  }
+
+  // ===== TAREA + DÍA → PERSONAS
+  async function openPeople(tid, date, name){
+    _title.textContent = `Personas · ${name} · ${date}`;
+    spinner();
+    pushState(()=>openPeople(tid, date, name));
+
+    try{
+      const r = await fetch(`/admin/informes/api/task/${tid}/day/${date}/people`);
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      const {people=[]} = await r.json();
+      if(!people.length){ _body.innerHTML = `<div class="text-center subtle">Sin personas</div>`; return; }
+
+      const list = document.createElement("div");
+      people.forEach(p=>{
+        const exp = +p.esperados || 0, done = +p.completados || 0;
+        const pct = exp>0 ? Math.round((done/exp)*100) : 0;
+        const li = document.createElement("li");
+        li.className = "list-clean";
+        li.innerHTML = `
+          <div class="d-flex justify-content-between align-items-center">
+            <div>
+              <div class="fw-semibold"><i class="bi bi-person-bounding-box me-1"></i> ${p.nombre}</div>
+              <div class="small subtle">${done}/${exp} reportes · ${pct}%</div>
+            </div>
+            <div>
+              <button class="btn btn-outline-primary btn-sm">Ver informes</button>
+            </div>
+          </div>`;
+        li.querySelector("button").onclick = ()=>openReports(tid, date, p.usuario_id, p.nombre, name);
+        list.appendChild(li);
+      });
+      _body.innerHTML = ""; _body.appendChild(list);
+    }catch(e){
+      console.error(e);
+      _body.innerHTML = `<div class="alert alert-danger">No se pudieron cargar las personas.</div>`;
+    }
+  }
+
+  // ===== TAREA + DÍA + PERSONA → INFORMES
+  async function openReports(tid, date, uid, empName, taskName){
+    setupModal();
+    _title.textContent = `Informes · ${empName} · ${date}`;
+    spinner();
+    pushState(()=>openReports(tid, date, uid, empName, taskName));
+
+    const TZ = tz;
+
+    async function amonestar(motivo){
+      try{
+        const res = await fetch("/admin/informes/api/sancion", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ usuario_id: uid, tarea_id: tid, fecha: date, motivo: motivo || "Incumplimiento" })
+        });
+        const j = await res.json();
+        if(!res.ok || !j.ok){ throw new Error(j.error || `HTTP ${res.status}`); }
+        return true;
+      }catch(e){
+        alert("No se pudo crear la amonestación: " + (e.message||e));
+        return false;
+      }
+    }
+
+    try{
+      const r = await fetch(`/admin/informes/api/task/${tid}/day/${date}/person/${uid}/reports?tz=${encodeURIComponent(TZ)}`);
+      if(!r.ok){ throw new Error(`HTTP ${r.status}`); }
+      const payload = await r.json();
+      const informes = payload.informes || [];
+      const resumen  = payload.resumen || {};
+      const desc30   = payload.descuento_lunch_min || 0;
+      const falloDia = !!payload.fallo_dia;
+
+      const head = document.createElement("div");
+      head.className = "d-flex flex-wrap align-items-center gap-2 mb-2";
+      head.innerHTML = `
+        <span class="badge text-bg-success-subtle text-success"><span class="badge-dot bd-on"></span> A tiempo: ${resumen.on_time||0}</span>
+        <span class="badge text-bg-warning-subtle text-dark"><span class="badge-dot bd-late"></span> Retardo: ${resumen.late||0}</span>
+        <span class="badge text-bg-danger-subtle text-danger"><span class="badge-dot bd-fallo"></span> Falló: ${resumen.fail||0}</span>
+        <span class="badge text-bg-secondary-subtle text-secondary"><span class="badge-dot bd-pend"></span> Pendiente: ${resumen.pending||0}</span>
+        ${desc30>0 ? `<span class="badge text-bg-primary-subtle text-primary"><i class="bi bi-hourglass-split"></i> Lunch: -${desc30} min</span>` : ""}
+        ${falloDia ? `<span class="badge text-bg-danger-subtle text-danger"><i class="bi bi-exclamation-octagon"></i> Faltan obligatorios</span>` : ""}
+      `;
+
+      const renderItem = (it)=>{
+        const li = document.createElement("li");
+        const tipo = (it.tipo || "informe").toLowerCase();
+        const ventanaStr = (() => {
+          if(tipo === "confirmacion"){ return it.ventana_fin ? `hasta ${it.ventana_fin}` : "—"; }
+          if(it.ventana_ini && it.ventana_fin) return `${it.ventana_ini}–${it.ventana_fin}`;
+          return "—";
+        })();
+        const tolTxt = (typeof it.tolerancia_min === "number" && it.tolerancia_min > 0)
+          ? ` (+ tol. ${it.tolerancia_min}m)` : "";
+        const enviado = it.hora_envio || "--:--";
+        const delay = (it.estado==='late' && (it.delay_human || (it.delay_mins>0)))
+          ? ` · +${it.delay_human || (it.delay_mins+'m')}` : "";
+
+        let gpsTxt = "—";
+        if (it.gps_lat != null && it.gps_lon != null){
+          gpsTxt = `${Number(it.gps_lat).toFixed(5)}, ${Number(it.gps_lon).toFixed(5)}`;
+        } else if (it.gps_raw){
+          gpsTxt = it.gps_raw;
+        }
+
+        const titulo = tipo.charAt(0).toUpperCase() + tipo.slice(1);
+        const left = `
+          <div class="fw-semibold text-capitalize">${titulo}</div>
+          <div class="small subtle">
+            <i class="bi bi-clock"></i>
+            ${tipo==="confirmacion" ? `Confirmación ${ventanaStr}` : `Ventana ${ventanaStr}${tipo==="asistencia" ? tolTxt : ""}`} ·
+            Enviado ${enviado} · ${estadoBadge(it.estado)}${delay}
+          </div>
+          <div class="small subtle">GPS: ${gpsTxt}</div>
+          ${it.nota ? `<div class="small subtle">${it.nota}</div>` : ""}
+        `;
+
+        const fotoBtn = it.foto_url
+          ? `<button class="btn btn-outline-secondary btn-sm me-2"><i class="bi bi-eye"></i> Foto</button>`
+          : `<span class="small subtle me-2">Sin evidencia</span>`;
+        const amonBtn = (it.estado==='late' || it.estado==='fail')
+          ? `<button class="btn btn-outline-danger btn-sm js-amon"><i class="bi bi-exclamation-triangle"></i> Amonestar</button>`
+          : "";
+
+        li.innerHTML = `
+          <div class="d-flex justify-content-between align-items-start">
+            <div>${left}</div>
+            <div class="d-flex align-items-start">${fotoBtn}${amonBtn}</div>
+          </div>
+        `;
+
+        if(it.foto_url){
+          const img = document.createElement("img");
+          img.src = it.foto_url;
+          img.className = "foto-thumb mt-2 w-100 d-none";
+          li.appendChild(img);
+          li.querySelector(".btn-outline-secondary")?.addEventListener("click", ()=>img.classList.toggle("d-none"));
+        }
+        li.querySelector(".js-amon")?.addEventListener("click", async ()=>{
+          const motivoDef = (it.estado==='fail' ? `[${titulo}] sin envío` : `[${titulo}] envío tarde`) + ` · ${date}`;
+          const motivo = prompt("Motivo de la amonestación:", motivoDef);
+          if(motivo===null) return;
+          const ok = await amonestar(motivo.trim());
+          if(ok) alert("Amonestación creada.");
+        });
+        return li;
+      };
+
+      const obligNames = ["asistencia","confirmacion","lunch"];
+      const listO = document.createElement("ul"); listO.className="list-clean";
+      const listX = document.createElement("ul"); listX.className="list-clean";
+      informes.forEach(it=>{
+        const bucket = obligNames.includes((it.tipo||"").toLowerCase()) ? listO : listX;
+        bucket.appendChild(renderItem(it));
+      });
+
+      const obligWrap  = document.createElement("div");
+      const otrosWrap  = document.createElement("div");
+      obligWrap.innerHTML = `<div class="fw-semibold mb-2">Obligatorios</div>`;
+      otrosWrap.innerHTML  = `<div class="fw-semibold mt-3 mb-2">Otros informes</div>`;
+
+      _body.innerHTML = "";
+      _body.appendChild(head);
+      _body.appendChild(obligWrap); obligWrap.appendChild(listO);
+      _body.appendChild(otrosWrap); otrosWrap.appendChild(listX);
+
+    }catch(err){
+      console.error(err);
+      _body.innerHTML = `<div class="alert alert-danger">No se pudieron cargar los informes. Intenta de nuevo.</div>`;
+    }
+  }
+
+  // ===== EMPLEADO → TAREAS
+  async function openEmp(uid, name){
+    setupModal();
+    _modal.show();
+    _title.textContent = "Tareas · " + name;
+    spinner();
+    pushState(()=>openEmp(uid, name));
+
+    try{
+      const r = await fetch(`/admin/informes/api/person/${uid}/tasks`);
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      const {tasks=[]} = await r.json();
+      if(!tasks.length){ _body.innerHTML = `<div class="text-center subtle">Sin tareas</div>`; return; }
+
+      const search = document.createElement("div");
+      search.className = "form-floating mb-3";
+      search.innerHTML = `
+        <input type="text" id="empTaskSearch" class="form-control" placeholder="Buscar tarea…">
+        <label for="empTaskSearch">Buscar tarea…</label>`;
+
+      const list = document.createElement("div");
+      function paint(arr){
+        list.innerHTML = "";
+        arr.forEach(t=>{
+          const li = document.createElement("li");
+          li.className = "list-clean";
+          const inner = document.createElement("div");
+          inner.className = "list-clean";
+          const row = document.createElement("li");
+          row.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+              <div>
+                <div class="fw-semibold"><i class="bi bi-briefcase me-1"></i> ${t.tarea_nombre}</div>
+                <div class="small subtle">${t.estado=='activa' ? 'Activa' : 'Inactiva'}</div>
+              </div>
+              <div><button class="btn btn-outline-primary btn-sm">Ver días</button></div>
+            </div>`;
+          row.querySelector("button").onclick = ()=>openEmpDays(uid, t);
+          inner.appendChild(row);
+          li.appendChild(inner);
+          list.appendChild(li);
+        });
+      }
+      paint(tasks);
+
+      search.querySelector("input").oninput = (e)=>{
+        const q = e.target.value.toLowerCase().trim();
+        paint(tasks.filter(t=>t.tarea_nombre.toLowerCase().includes(q)));
+      };
+
+      _body.innerHTML = "";
+      _body.appendChild(search);
+      _body.appendChild(list);
+    }catch(e){
+      console.error(e);
+      _body.innerHTML = `<div class="alert alert-danger">No se pudieron cargar las tareas del empleado.</div>`;
+    }
+  }
+
+  // ===== EMPLEADO + TAREA → DÍAS
+  async function openEmpDays(uid, t){
+    _title.textContent = `Días · ${t.tarea_nombre}`;
+    spinner();
+    pushState(()=>openEmpDays(uid, t));
+
+    const TZ = tz;
+    try{
+      const r = await fetch(`/admin/informes/api/task/${t.tarea_id}/days?tz=${encodeURIComponent(TZ)}`);
+      if(!r.ok) throw new Error(`HTTP ${r.status}`);
+      const {days=[]} = await r.json();
+      if(!days.length){ _body.innerHTML = `<div class="text-center subtle">Sin días activos</div>`; return; }
+
+      const wrap = document.createElement("div");
+      days.forEach(d=>{
+        const b = document.createElement("button");
+        b.className = "btn btn-outline-primary w-100 mb-2";
+        b.textContent = d;
+        b.onclick = ()=>openEmpReports(uid, t.tarea_id, d, _title.textContent.replace('Días · ', ''));
+        wrap.appendChild(b);
+      });
+      _body.innerHTML = ""; _body.appendChild(wrap);
+    }catch(e){
+      console.error(e);
+      _body.innerHTML = `<div class="alert alert-danger">No se pudieron cargar los días.</div>`;
+    }
+  }
+
+  // ===== EMPLEADO + TAREA + DÍA → INFORMES
+  async function openEmpReports(uid, tid, date, taskName){
+    _title.textContent = `Informes · ${taskName} · ${date}`;
+    spinner();
+    pushState(()=>openEmpReports(uid, tid, date, taskName));
+
+    const TZ = tz;
+
+    async function amonestar(motivo){
+      try{
+        const res = await fetch("/admin/informes/api/sancion", {
+          method: "POST",
+          headers: {"Content-Type":"application/json"},
+          body: JSON.stringify({ usuario_id: uid, tarea_id: tid, fecha: date, motivo: motivo || "Incumplimiento" })
+        });
+        const j = await res.json();
+        if(!res.ok || !j.ok){ throw new Error(j.error || `HTTP ${res.status}`); }
+        return true;
+      }catch(e){
+        alert("No se pudo crear la amonestación: " + (e.message||e));
+        return false;
+      }
+    }
+
+    try{
+      const r = await fetch(`/admin/informes/api/task/${tid}/day/${date}/person/${uid}/reports?tz=${encodeURIComponent(TZ)}`);
+      if(!r.ok){ throw new Error(`HTTP ${r.status}`); }
+      const payload = await r.json();
+      const informes = payload.informes || [];
+      const resumen  = payload.resumen || {};
+      const desc30   = payload.descuento_lunch_min || 0;
+      const falloDia = !!payload.fallo_dia;
+
+      const head = document.createElement("div");
+      head.className = "d-flex flex-wrap align-items-center gap-2 mb-2";
+      head.innerHTML = `
+        <span class="badge text-bg-success-subtle text-success"><span class="badge-dot bd-on"></span> A tiempo: ${resumen.on_time||0}</span>
+        <span class="badge text-bg-warning-subtle text-dark"><span class="badge-dot bd-late"></span> Retardo: ${resumen.late||0}</span>
+        <span class="badge text-bg-danger-subtle text-danger"><span class="badge-dot bd-fallo"></span> Falló: ${resumen.fail||0}</span>
+        <span class="badge text-bg-secondary-subtle text-secondary"><span class="badge-dot bd-pend"></span> Pendiente: ${resumen.pending||0}</span>
+        ${desc30>0 ? `<span class="badge text-bg-primary-subtle text-primary"><i class="bi bi-hourglass-split"></i> Lunch: -${desc30} min</span>` : ""}
+        ${falloDia ? `<span class="badge text-bg-danger-subtle text-danger"><i class="bi bi-exclamation-octagon"></i> Faltan obligatorios</span>` : ""}
+      `;
+
+      const renderItem = (it)=>{
+        const li = document.createElement("li");
+        const tipo = (it.tipo || "informe").toLowerCase();
+        const ventanaStr = (() => {
+          if(tipo === "confirmacion"){ return it.ventana_fin ? `hasta ${it.ventana_fin}` : "—"; }
+          if(it.ventana_ini && it.ventana_fin) return `${it.ventana_ini}–${it.ventana_fin}`;
+          return "—";
+        })();
+        const tolTxt = (typeof it.tolerancia_min === "number" && it.tolerancia_min > 0)
+          ? ` (+ tol. ${it.tolerancia_min}m)` : "";
+        const enviado = it.hora_envio || "--:--";
+        const delay = (it.estado==='late' && (it.delay_human || (it.delay_mins>0)))
+          ? ` · +${it.delay_human || (it.delay_mins+'m')}` : "";
+
+        let gpsTxt = "—";
+        if (it.gps_lat != null && it.gps_lon != null){
+          gpsTxt = `${Number(it.gps_lat).toFixed(5)}, ${Number(it.gps_lon).toFixed(5)}`;
+        } else if (it.gps_raw){
+          gpsTxt = it.gps_raw;
+        }
+
+        const titulo = tipo.charAt(0).toUpperCase() + tipo.slice(1);
+        const left = `
+          <div class="fw-semibold text-capitalize">${titulo}</div>
+          <div class="small subtle">
+            <i class="bi bi-clock"></i>
+            ${tipo==="confirmacion" ? `Confirmación ${ventanaStr}` : `Ventana ${ventanaStr}${tipo==="asistencia" ? tolTxt : ""}`} ·
+            Enviado ${enviado} · ${estadoBadge(it.estado)}${delay}
+          </div>
+          <div class="small subtle">GPS: ${gpsTxt}</div>
+          ${it.nota ? `<div class="small subtle">${it.nota}</div>` : ""}
+        `;
+
+        const fotoBtn = it.foto_url
+          ? `<button class="btn btn-outline-secondary btn-sm me-2"><i class="bi bi-eye"></i> Foto</button>`
+          : `<span class="small subtle me-2">Sin evidencia</span>`;
+        const amonBtn = (it.estado==='late' || it.estado==='fail')
+          ? `<button class="btn btn-outline-danger btn-sm js-amon"><i class="bi bi-exclamation-triangle"></i> Amonestar</button>`
+          : "";
+
+        li.innerHTML = `
+          <div class="d-flex justify-content-between align-items-start">
+            <div>${left}</div>
+            <div class="d-flex align-items-start">${fotoBtn}${amonBtn}</div>
+          </div>
+        `;
+
+        if(it.foto_url){
+          const img = document.createElement("img");
+          img.src = it.foto_url;
+          img.className = "foto-thumb mt-2 w-100 d-none";
+          li.appendChild(img);
+          li.querySelector(".btn-outline-secondary")?.addEventListener("click", ()=>img.classList.toggle("d-none"));
+        }
+        li.querySelector(".js-amon")?.addEventListener("click", async ()=>{
+          const motivoDef = (it.estado==='fail' ? `[${titulo}] sin envío` : `[${titulo}] envío tarde`) + ` · ${date}`;
+          const motivo = prompt("Motivo de la amonestación:", motivoDef);
+          if(motivo===null) return;
+          const ok = await amonestar(motivo.trim());
+          if(ok) alert("Amonestación creada.");
+        });
+        return li;
+      };
+
+      const obligNames = ["asistencia","confirmacion","lunch"];
+      const listO = document.createElement("ul"); listO.className="list-clean";
+      const listX = document.createElement("ul"); listX.className="list-clean";
+      informes.forEach(it=>{
+        const bucket = obligNames.includes((it.tipo||"").toLowerCase()) ? listO : listX;
+        bucket.appendChild(renderItem(it));
+      });
+
+      const obligWrap  = document.createElement("div");
+      const otrosWrap  = document.createElement("div");
+      obligWrap.innerHTML = `<div class="fw-semibold mb-2">Obligatorios</div>`;
+      otrosWrap.innerHTML  = `<div class="fw-semibold mt-3 mb-2">Otros informes</div>`;
+
+      _body.innerHTML = "";
+      _body.appendChild(head);
+      _body.appendChild(obligWrap); obligWrap.appendChild(listO);
+      _body.appendChild(otrosWrap); otrosWrap.appendChild(listX);
+
+    }catch(err){
+      console.error(err);
+      _body.innerHTML = `<div class="alert alert-danger">No se pudieron cargar los informes. Intenta de nuevo.</div>`;
+    }
+  }
+})();
+</script>
+{% endblock %}

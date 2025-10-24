@@ -1,0 +1,72 @@
+{% extends "admin/base.html" %}
+{% block title %}Editar horas (simple){% endblock %}
+{% block content %}
+<h5 class="mb-3">Editar horas (simple) — Tarea: {{ tarea.nombre }} — {{ fecha }}</h5>
+
+{% if rows|length == 0 %}
+  <div class="alert alert-info">No hay empleados asignados a esta tarea.</div>
+{% else %}
+  <div class="table-responsive">
+    <table class="table table-sm align-middle" id="tblEditSimple">
+      <thead class="table-light">
+        <tr>
+          <th>Empleado</th>
+          <th style="width:160px">Horas netas (HH:MM)</th>
+          <th style="width:120px">Lunch</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for r in rows %}
+        <tr data-uid="{{ r.uid }}">
+          <td>
+            <div class="fw-semibold">{{ r.nombre }}</div>
+            <div class="text-muted small">{{ r.tel or '' }}</div>
+          </td>
+          <td>
+            <input type="time" class="form-control form-control-sm hhmm"
+                   step="300" value="{{ r.hhmm }}">
+          </td>
+          <td>
+            <div class="form-check">
+              <input class="form-check-input lunch" type="checkbox" {{ 'checked' if r.lunch_on else '' }}>
+              <label class="form-check-label small">Descontar {{ r.lunch_min }} min</label>
+            </div>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="d-flex gap-2">
+    <a href="{{ url_for('admin_horas') }}" class="btn btn-outline-secondary btn-sm">Volver</a>
+    <button id="btnGuardar" class="btn btn-primary btn-sm">Guardar cambios</button>
+  </div>
+{% endif %}
+
+<script>
+document.getElementById("btnGuardar")?.addEventListener("click", async ()=>{
+  const tareaId = {{ tarea.id }};
+  const fecha   = "{{ fecha }}";
+  const rows = Array.from(document.querySelectorAll("#tblEditSimple tbody tr"));
+  const items = rows.map(tr => {
+    const uid = parseInt(tr.dataset.uid, 10);
+    const hhmm = tr.querySelector(".hhmm")?.value || "";
+    const lunch_on = !!tr.querySelector(".lunch")?.checked;
+    return { uid, hhmm, lunch_on };
+  });
+
+  const res = await fetch("{{ url_for('admin_horas_editar_simple_post') }}", {
+    method: "POST", headers: {"Content-Type":"application/json"},
+    body: JSON.stringify({ tarea_id: tareaId, fecha: fecha, items })
+  });
+  const json = await res.json();
+  if(!json.ok){
+    alert(json.error || "Error guardando.");
+    return;
+  }
+  alert("Cambios guardados.");
+  location.reload();
+});
+</script>
+{% endblock %}

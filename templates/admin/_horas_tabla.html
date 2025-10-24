@@ -1,0 +1,199 @@
+{% set q = request.args.get('q') %}
+{% set estado = request.args.get('estado') %}
+{% set fecha = request.args.get('fecha') %}
+
+<div class="card shadow-sm">
+  <div class="p-3 border-bottom d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <div class="fw-semibold">Resumen detallado por empleado</div>
+    <div class="text-muted small">Rango: {{ d_from.strftime("%Y-%m-%d") }} – {{ d_to.strftime("%Y-%m-%d") }}</div>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+      <thead class="table-light">
+        <tr>
+          <th style="min-width:240px">Empleado</th>
+          <th class="text-end" style="min-width:120px">Horas</th>
+          <th class="text-end" style="min-width:120px">Total</th>
+          <th style="min-width:180px">Avance</th>
+          <th class="text-center" style="width:110px">Acciones</th>
+        </tr>
+      </thead>
+      <tbody id="tablaBody">
+        {% if cards_table %}
+          {% for c in cards_table %}
+            {% set uid = c.usuario_id %}
+            {% set collapse_id = 'emp-' ~ uid %}
+
+            <tr class="table-group js-emp-row"
+                data-emp="{{ (c.nombre ~ ' ' ~ c.identificacion ~ ' ' ~ (c.telefono or ''))|lower }}"
+                data-pct="{{ c.reportes_pct }}"
+                data-horas="{{ '%.2f'|format(c.horas) }}"
+                data-total="{{ '%.2f'|format(c.total) }}"
+                data-uid="{{ uid }}">
+              <td>
+                <a class="text-decoration-none d-inline-flex align-items-center gap-2"
+                   data-bs-toggle="collapse" href="#{{ collapse_id }}" role="button"
+                   aria-expanded="false" aria-controls="{{ collapse_id }}">
+                  <i class="bi bi-caret-right-fill text-muted"></i>
+                  <span class="emp-avatar-mini">{{ c.iniciales }}</span>
+                  <span class="fw-semibold">{{ c.nombre }}</span>
+                </a>
+                <div class="small text-muted">
+                  {% if c.identificacion %}{{ c.identificacion }} · {% endif %}
+                  {% if c.telefono %}{{ c.telefono }}{% else %}—{% endif %}
+                </div>
+              </td>
+
+              <td class="text-end">
+                <span class="fw-semibold">{{ '%.1f'|format(c.horas) }}h</span>
+                <span class="text-muted small"> · {{ c.dias_trabajados }} día{{ '' if c.dias_trabajados==1 else 's' }}</span>
+              </td>
+
+              <td class="text-end fw-semibold">${{ '%.2f'|format(c.total) }}</td>
+
+              <td>
+                <div class="d-flex align-items-center gap-2">
+                  <div class="progress flex-grow-1" style="height:8px;">
+                    <div class="progress-bar" role="progressbar" style="width: {{ c.reportes_pct }}%;"></div>
+                  </div>
+                  <span class="small">{{ c.reportes_pct }}%</span>
+                </div>
+              </td>
+
+              <td class="text-center">
+                <button class="btn btn-sm btn-outline-primary" data-open-detalle="{{ uid }}">Ver</button>
+              </td>
+            </tr>
+
+            <tr class="collapse" id="{{ collapse_id }}">
+              <td colspan="5" class="p-0">
+                <div class="p-3 border-top">
+                  <div class="mb-3">
+                    <div class="fw-semibold mb-2">Tareas del empleado</div>
+                    <div class="table-responsive">
+                      <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                          <tr>
+                            <th>Tarea</th>
+                            <th class="text-end">Horas</th>
+                            <th class="text-end">Total</th>
+                            <th class="text-end" style="width:120px">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {% for t in tasks_by_emp.get(uid, []) %}
+                          <tr class="js-task-row" data-tarea-id="{{ t.tarea_id }}" data-tarea-name="{{ t.tarea }}">
+                            <td><span class="text-muted">#{{ t.tarea_id }}</span> · <span class="js-task-name">{{ t.tarea }}</span></td>
+                            <td class="text-end">{{ '%.1f'|format(t.horas) }}h</td>
+                            <td class="text-end">${{ '%.2f'|format(t.total) }}</td>
+                            <td class="__actions text-end"></td>
+                          </tr>
+                          {% else %}
+                          <tr><td colspan="4" class="text-muted text-center">Sin tareas en el rango.</td></tr>
+                          {% endfor %}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <div>
+                    <div class="fw-semibold mb-2">Detalle diario</div>
+                    <div class="table-responsive">
+                      <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                          <tr>
+                            <th>Fecha</th>
+                            <th>Tarea</th>
+                            <th class="text-end">Horas</th>
+                            <th class="text-end">Pago/h</th>
+                            <th class="text-end">Total</th>
+                            <th class="text-center">Estado</th>
+                            <th class="text-end" style="width:120px">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {% for r in rows_by_emp.get(uid, []) %}
+                          <tr class="js-task-row" data-tarea-id="{{ r.tarea_id }}" data-tarea-name="{{ r.tarea }}">
+                            <td><span class="badge bg-light text-dark">{{ r.fecha }}</span></td>
+                            <td class="text-truncate" style="max-width:320px"><span class="text-muted">#{{ r.tarea_id }}</span> · <span class="js-task-name">{{ r.tarea }}</span></td>
+                            <td class="text-end">{{ '%.1f'|format(r.horas) }}h <span class="text-muted small">({{ r.reportes }})</span></td>
+                            <td class="text-end">${{ '%.0f'|format(r.tarifa) }}</td>
+                            <td class="text-end fw-semibold">${{ '%.2f'|format(r.total) }}</td>
+                            <td class="text-center">
+                              {% if r.estado=='completado' %}
+                                <span class="badge text-bg-success">Completado</span>
+                              {% elif r.estado=='incompleto' %}
+                                <span class="badge text-bg-warning">Incompleto</span>
+                              {% else %}
+                                <span class="badge text-bg-danger">Sin reportes</span>
+                              {% endif %}
+                            </td>
+                            <td class="__actions text-end"></td>
+                          </tr>
+                          {% else %}
+                          <tr><td colspan="7" class="text-muted text-center">Sin registros en el rango.</td></tr>
+                          {% endfor %}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        {% else %}
+          <tr><td colspan="5" class="text-center text-muted py-4">No hay empleados para mostrar con los filtros actuales.</td></tr>
+        {% endif %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="card-footer d-flex justify-content-between align-items-center">
+    <div>
+      <small id="tablaCount" class="text-muted">Mostrando {{ shown_count }} de {{ total_items }} empleados</small>
+      <small id="tablaCountFiltered" class="text-muted d-none">Filtrado: <span id="tablaCountNum">0</span> coincidencia(s) en esta página</small>
+    </div>
+
+    {# --- Paginación que respeta per_page y filtros (sin 'combine') --- #}
+    {% set base_url = url_for('admin_horas') %}
+    {% set common = "&vista=tabla"
+                    ~ "&per_page=" ~ per_page
+                    ~ (q and "&q=" ~ q or "")
+                    ~ (estado and "&estado=" ~ estado or "")
+                    ~ (fecha and "&fecha=" ~ fecha or "")
+                    ~ (usuario_id and "&usuario_id=" ~ usuario_id or "")
+                    ~ (tarea_id and "&tarea_id=" ~ tarea_id or "") %}
+
+    <nav id="tablaPagination">
+      <ul class="pagination pagination-sm mb-0">
+        <li class="page-item {{ 'disabled' if page<=1 else '' }}">
+          <a class="page-link" href="{{ base_url }}?page={{ page-1 }}{{ common }}">«</a>
+        </li>
+
+        {% for n in range(1, total_pages+1) %}
+        <li class="page-item {{ 'active' if n==page else '' }}">
+          <a class="page-link" href="{{ base_url }}?page={{ n }}{{ common }}">{{ n }}</a>
+        </li>
+        {% endfor %}
+
+        <li class="page-item {{ 'disabled' if page>=total_pages else '' }}">
+          <a class="page-link" href="{{ base_url }}?page={{ page+1 }}{{ common }}">»</a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+</div>
+
+<style>
+.table thead th{ white-space:nowrap; }
+.table td, .table th{ vertical-align:middle; }
+.emp-avatar-mini{
+  width:28px; height:28px; border-radius:50%;
+  display:inline-grid; place-items:center;
+  background:#eaf1ff; color:#1b57f0; font-weight:800; font-size:.8rem;
+}
+.progress{ background:#eef2f7; } .progress-bar{ background:#4f86ff; }
+.badge{ font-variant-numeric: tabular-nums; }
+</style>

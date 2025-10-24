@@ -1,0 +1,41 @@
+/* Layouts básicos */
+.page-section{max-width:1100px;margin:0 auto}
+.callout{background:#fff7e6;border:1px solid #ffe0b2;border-radius:12px;padding:14px}
+.callout-title{font-weight:700;margin-bottom:6px}
+.t-sub{color:#6b7280;font-size:.92rem}
+
+/* Cards genéricas */
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:14px;box-shadow:0 1px 2px rgba(16,24,40,.04)}
+.sheet>.card{margin-bottom:14px}
+
+/* Informes */
+.inf-card.prio-comun{background:#f2fbf2;border-color:#d9f2d9}
+.inf-card.prio-turnos{background:#eef6ff;border-color:#d7e8ff}
+.inf-card.prio-emergencia{background:#fff0f0;border-color:#ffd9d9}
+
+.inf-head{display:flex;justify-content:space-between;gap:16px;padding:12px 14px 8px 14px}
+.inf-body{padding:0 14px 14px 14px}
+.title{display:flex;flex-direction:column;gap:2px}
+.title .sub{color:#6b7280;font-size:.9rem}
+.stats{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:flex-end}
+.emp-row{display:flex;justify-content:space-between;align-items:center;border:1px solid #e5e7eb;background:#fff;border-radius:10px;padding:8px 10px;margin-top:6px}
+.turnos-band{border-top:1px solid #e5e7eb;background:#f8fafc;border-radius:12px;padding:10px;margin-top:10px}
+.band-title{font-weight:600;color:#475569;margin-bottom:6px}
+.turnos-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.turno{background:#fff;border:1px solid #e5e7eb;border-radius:10px;padding:8px}
+.turno-title{font-weight:700}
+
+/* Pills y dots */
+.pill{display:inline-block;border-radius:999px;border:1px solid #e5e7eb;padding:4px 10px;font-size:.85rem;background:#fff}
+.pill.ok{background:#e9f8ed;border-color:#b7e5c1}
+.pill.warn{background:#fff8e6;border-color:#ffe2a8}
+.pill.bad{background:#ffecec;border-color:#ffbdbd}
+
+.dot{width:10px;height:10px;border-radius:999px;display:inline-block;margin-right:8px;align-self:center}
+.dot-green{background:#10b981}
+.dot-blue{background:#3b82f6}
+.dot-red{background:#ef4444}
+
+/* Utilidades */
+.form-floating>label{color:#6b7280}
+.btn-outline-primary{border-radius:999px}
